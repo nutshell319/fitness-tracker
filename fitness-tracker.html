@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>新手健身追踪器 · 胸肩背三分化</title>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #121418; --bg-card: #1e2127; --bg-card-hover: #262a32; --border: #2a2d36;
+  --primary: #ff6b35; --primary-dim: rgba(255,107,53,0.10);
+  --secondary: #4ecdc4; --secondary-dim: rgba(78,205,196,0.10);
+  --text: #e4e2df; --text-secondary: #a09d98; --text-muted: #6b6864; --danger: #e85d75;
+  --back: #4ecdc4; --chest: #ff6b35; --shoulder: #f0c040; --rest: #5c5a57;
+  --radius: 10px; --radius-sm: 6px;
+  --font: "Microsoft YaHei","PingFang SC","Noto Sans SC",system-ui,-apple-system,sans-serif;
+}
+html { font-size: 16px; scroll-behavior: smooth; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.6; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+.app { max-width: 780px; margin: 0 auto; padding: 20px 16px 60px; }
+
+.header { background: var(--bg-card); border-radius: var(--radius); padding: 28px 24px 20px; text-align: center; margin-bottom: 20px; border: 1px solid var(--border); position: relative; overflow: hidden; }
+.header::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+.header.back::before { background: var(--back); }
+.header.chest::before { background: var(--chest); }
+.header.shoulder::before { background: var(--shoulder); }
+.header.rest::before { background: var(--rest); }
+.day-emoji { font-size: 48px; display: block; margin-bottom: 6px; line-height: 1; }
+.day-label { font-size: 13px; text-transform: uppercase; letter-spacing: 3px; color: var(--text-muted); margin-bottom: 4px; }
+.day-title { font-size: 32px; font-weight: 700; margin-bottom: 6px; }
+.header.back .day-title { color: var(--back); }
+.header.chest .day-title { color: var(--chest); }
+.header.shoulder .day-title { color: var(--shoulder); }
+.header.rest .day-title { color: var(--rest); }
+.motivation { font-size: 15px; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.7; }
+.today-date { font-size: 12px; color: var(--text-muted); margin-bottom: 14px; }
+.skip-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 18px; background: transparent; border: 1px solid var(--border); color: var(--text-muted); border-radius: 20px; cursor: pointer; font-size: 13px; font-family: var(--font); transition: all 0.2s; }
+.skip-btn:hover { border-color: var(--danger); color: var(--danger); }
+
+.cycle-bar { background: var(--bg-card); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 20px; border: 1px solid var(--border); }
+.cycle-bar h3 { font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 12px; text-align: center; }
+.cycle-days { display: flex; gap: 8px; justify-content: center; }
+.cycle-day { flex: 1; max-width: 90px; text-align: center; padding: 12px 8px; border-radius: var(--radius-sm); background: var(--bg); border: 1px solid transparent; transition: all 0.2s; }
+.cycle-day.today { border-color: var(--primary); background: var(--primary-dim); transform: scale(1.05); }
+.cycle-day .cyc-date { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+.cycle-day .cyc-emoji { font-size: 20px; display: block; margin-bottom: 2px; }
+.cycle-day .cyc-label { font-size: 12px; font-weight: 600; }
+.cycle-day.back .cyc-label { color: var(--back); }
+.cycle-day.chest .cyc-label { color: var(--chest); }
+.cycle-day.shoulder .cyc-label { color: var(--shoulder); }
+.cycle-day.rest { opacity: 0.5; }
+.cycle-day.rest .cyc-label { color: var(--rest); }
+
+.section-title { font-size: 18px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+.exercise-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+.exercise-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; transition: border-color 0.2s; cursor: pointer; }
+.exercise-card:hover { border-color: #3a3d47; }
+.exercise-card.expanded { border-color: var(--primary); }
+.card-header { display: flex; align-items: center; gap: 14px; padding: 16px 18px; user-select: none; }
+.card-index { width: 32px; height: 32px; border-radius: 50%; background: var(--primary-dim); color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+.card-info { flex: 1; min-width: 0; }
+.card-name { font-size: 16px; font-weight: 600; }
+.card-meta { font-size: 13px; color: var(--text-muted); margin-top: 2px; display: flex; gap: 12px; flex-wrap: wrap; }
+.card-arrow { font-size: 14px; color: var(--text-muted); transition: transform 0.3s; flex-shrink: 0; }
+.exercise-card.expanded .card-arrow { transform: rotate(180deg); }
+
+.card-detail { display: none; padding: 0 18px 20px; border-top: 1px solid var(--border); }
+.exercise-card.expanded .card-detail { display: block; }
+
+.params-table { width: 100%; border-collapse: collapse; margin: 12px 0 16px; font-size: 13px; }
+.params-table tr { border-bottom: 1px solid rgba(255,255,255,0.05); }
+.params-table tr:last-child { border-bottom: none; }
+.params-table td { padding: 7px 6px; vertical-align: top; }
+.params-table td:first-child { color: var(--text-muted); width: 90px; white-space: nowrap; font-weight: 600; font-size: 12px; }
+.params-table td:last-child { color: var(--text-secondary); }
+.params-table .val-highlight { color: var(--primary); font-weight: 600; }
+
+.detail-section { margin-bottom: 14px; }
+.detail-section h4 { font-size: 14px; font-weight: 600; color: var(--primary); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+
+.step-list { list-style: none; padding: 0; }
+.step-list li { position: relative; padding-left: 24px; margin-bottom: 6px; font-size: 14px; color: var(--text-secondary); line-height: 1.6; }
+.step-list li::before { content: attr(data-step); position: absolute; left: 0; top: 0; font-size: 11px; font-weight: 700; color: var(--primary); width: 18px; text-align: center; }
+
+.mistake-list { list-style: none; padding: 0; }
+.mistake-list li { position: relative; padding-left: 20px; margin-bottom: 5px; font-size: 14px; color: var(--danger); line-height: 1.6; }
+.mistake-list li::before { content: '⚠'; position: absolute; left: 0; top: 0; font-size: 12px; }
+
+.video-links { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+.mw-link { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; background: var(--primary-dim); color: var(--primary); border-radius: 20px; text-decoration: none; font-size: 13px; font-weight: 600; transition: background 0.2s; }
+.mw-link:hover { background: rgba(255,107,53,0.2); }
+.bili-link { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; background: var(--secondary-dim); color: var(--secondary); border-radius: 20px; text-decoration: none; font-size: 13px; font-weight: 600; transition: background 0.2s; }
+.bili-link:hover { background: rgba(78,205,196,0.2); }
+
+.tag-nav { display: flex; gap: 8px; margin-bottom: 16px; background: var(--bg-card); border-radius: 24px; padding: 4px; border: 1px solid var(--border); }
+.tag-btn { flex: 1; padding: 10px; border: none; border-radius: 20px; background: transparent; color: var(--text-muted); font-size: 14px; font-weight: 600; cursor: pointer; font-family: var(--font); transition: all 0.2s; }
+.tag-btn.active { background: var(--primary); color: #fff; }
+.tag-btn:hover:not(.active) { color: var(--text); }
+
+.rest-day-hint { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 40px 24px; text-align: center; }
+.rest-day-hint .rest-emoji { font-size: 60px; display: block; margin-bottom: 12px; }
+.rest-day-hint h3 { font-size: 20px; margin-bottom: 8px; color: var(--text-secondary); }
+.rest-day-hint p { color: var(--text-muted); font-size: 14px; line-height: 1.7; max-width: 400px; margin: 0 auto; }
+
+.settings-section { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 20px; }
+.settings-section summary { cursor: pointer; font-size: 14px; font-weight: 600; color: var(--text-muted); list-style: none; display: flex; align-items: center; gap: 6px; }
+.settings-section summary::-webkit-details-marker { display: none; }
+.settings-section summary::before { content: '⚙'; font-size: 16px; }
+.settings-body { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+.settings-body label { font-size: 13px; color: var(--text-secondary); display: block; margin-bottom: 6px; }
+.settings-row { display: flex; gap: 8px; align-items: center; }
+.settings-row input { flex: 1; padding: 10px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-size: 14px; font-family: var(--font); }
+.settings-row input:focus { outline: none; border-color: var(--primary); }
+.settings-row button { padding: 10px 18px; background: var(--primary); color: #fff; border: none; border-radius: var(--radius-sm); cursor: pointer; font-size: 14px; font-weight: 600; font-family: var(--font); }
+.settings-row button:hover { opacity: 0.9; }
+.settings-hint { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+
+.toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: var(--primary); color: #fff; padding: 12px 24px; border-radius: 24px; font-size: 14px; font-weight: 600; z-index: 1000; pointer-events: none; opacity: 0; transition: opacity 0.3s, transform 0.3s; box-shadow: 0 4px 20px rgba(255,107,53,0.3); }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(4px); }
+
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 999; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+.modal-overlay.show { opacity: 1; pointer-events: auto; }
+.modal-box { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px 24px; max-width: 380px; width: 90%; text-align: center; }
+.modal-box h3 { margin-bottom: 8px; font-size: 18px; }
+.modal-box p { color: var(--text-secondary); font-size: 14px; margin-bottom: 20px; }
+.modal-actions { display: flex; gap: 10px; justify-content: center; }
+.modal-actions button { padding: 10px 24px; border-radius: 20px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: var(--font); border: none; }
+.btn-cancel { background: var(--bg); color: var(--text-secondary); border: 1px solid var(--border); }
+.btn-confirm { background: var(--danger); color: #fff; }
+
+@media (max-width: 600px) {
+  .app { padding: 12px 10px 40px; }
+  .header { padding: 22px 16px 18px; }
+  .day-title { font-size: 26px; }
+  .card-header { padding: 14px; gap: 10px; }
+  .card-detail { padding: 0 12px 16px; }
+  .cycle-day { padding: 8px 4px; }
+  .cycle-day .cyc-emoji { font-size: 16px; }
+  .params-table td:first-child { width: 70px; font-size: 11px; }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="header" id="header">
+    <span class="day-emoji" id="dayEmoji"></span>
+    <div class="day-label" id="dayLabel"></div>
+    <h1 class="day-title" id="dayTitle"></h1>
+    <p class="motivation" id="motivation"></p>
+    <p class="today-date" id="todayDate"></p>
+    <button class="skip-btn" id="skipBtn" title="有事跳过，计划顺延一天">⏭ 今天练不了，顺延一天</button>
+  </header>
+
+  <div class="cycle-bar" id="cycleBar"></div>
+
+  <section id="todaySection">
+    <h2 class="section-title">📋 今日训练</h2>
+    <div class="exercise-list" id="todayList"></div>
+  </section>
+
+  <section id="restSection" style="display:none;"></section>
+
+  <section class="library-section">
+    <h2 class="section-title">📚 全部动作库（数据来源：MuscleWiki）</h2>
+    <div class="tag-nav" id="tagNav">
+      <button class="tag-btn active" data-muscle="back">🔵 背（6个动作）</button>
+      <button class="tag-btn" data-muscle="chest">🟠 胸（6个动作）</button>
+      <button class="tag-btn" data-muscle="shoulder">🟡 肩（6个动作）</button>
+    </div>
+    <div class="exercise-list" id="libraryList"></div>
+  </section>
+
+  <details class="settings-section" id="settingsPanel">
+    <summary>设置</summary>
+    <div class="settings-body">
+      <label>训练起始日期（修改后计划将重新对齐）</label>
+      <div class="settings-row">
+        <input type="date" id="startDateInput">
+        <button id="saveStartDate">保存</button>
+      </div>
+      <p class="settings-hint">起始日为<b>背日</b>，按 背→胸→肩→休息 4 日循环</p>
+    </div>
+  </details>
+</div>
+
+<div class="modal-overlay" id="skipModal">
+  <div class="modal-box">
+    <h3>确认跳过今天？</h3>
+    <p>计划将整体顺延一天，明天的训练变成今天的计划。</p>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="btnCancel">取消</button>
+      <button class="btn-confirm" id="btnConfirm">确认顺延</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================================
+// 核心常量
+// ============================================================================
+const CYCLE = ['back', 'chest', 'shoulder', 'rest'];
+const CYCLE_NAMES = { back:'背日', chest:'胸日', shoulder:'肩日', rest:'休息日' };
+const MOTIVATIONS = {
+  back:'打造倒三角，从每一次下拉开始',
+  chest:'推起重量，推起自信',
+  shoulder:'宽肩撑起气场，饱满三角肌',
+  rest:'肌肉在休息时生长，好好恢复 💤'
+};
+const REST_TIPS = [
+  '充足的睡眠（7-8小时）是肌肉生长的黄金时间',
+  '今天可以做轻度有氧或拉伸，促进血液循环',
+  '蛋白质摄入不要断，休息日同样需要营养',
+  '泡沫轴放松是个好选择，缓解前几天的酸痛',
+  '多喝水，肌肉修复需要充足的水分',
+];
+
+// ============================================================================
+// LocalStorage
+// ============================================================================
+const STORAGE_KEY = 'ft_start_date';
+function getStartDate() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (raw) { const d = new Date(raw); if (!isNaN(d)) return d; }
+  const today = new Date(); today.setHours(0,0,0,0); saveStartDate(today); return today;
+}
+function saveStartDate(d) { localStorage.setItem(STORAGE_KEY, d.toISOString().split('T')[0]); }
+function getDaysDiff() {
+  const start = getStartDate();
+  const today = new Date(); today.setHours(0,0,0,0);
+  return Math.floor((today - start) / 86400000);
+}
+function getTodayMuscle() { return CYCLE[getDaysDiff() % 4]; }
+function skipToday() { const s = getStartDate(); s.setDate(s.getDate()-1); saveStartDate(s); }
+
+// ============================================================================
+// 动作数据 — 全部来自 MuscleWiki (musclewiki.com)，15个精确匹配 + 3个备选
+// 每个动作对应：MuscleWiki 动画演示页 + B站中文教学视频
+// ============================================================================
+const EXERCISES = [
+  // ═══════════════ 背 day（5个正式动作 + 1个备选）═══════════════
+  {
+    id:'machine-pulldown', name:'高位下拉', nameEn:'Machine Pulldown', muscle:'back',
+    mwSlug:'machine-pulldown', bv:'BV1s1421b71f',
+    warmup:'1×15（轻重量，激活背部神经连接）',
+    working:'4 组 × 10-12 次',
+    tempo:'下拉 2 秒 → 顶峰收缩 1 秒 → 还原 3 秒',
+    rest:'组间休息 60-90 秒',
+    equipment:'高位下拉器械',
+    steps:[
+      '调整大腿垫高度，使膝盖稳固卡在垫子下方，双脚平踩地面',
+      '双手宽握横杆（约肩宽 1.5 倍），掌心朝前，拇指扣紧',
+      '挺胸收腹，肩胛骨主动下沉，身体微微后倾约 10-15°',
+      '用背部发力将横杆下拉至锁骨上方，肘尖始终保持指向地面',
+      '在最低点顶峰收缩 1-2 秒，用力挤压背阔肌',
+      '控制重量缓慢还原（约 2-3 秒），手臂不完全伸直，保持背部持续张力'
+    ],
+    mistakes:[
+      '用手臂猛拉而非背部发力——想象双手只是"钩子"，发力点在背阔肌',
+      '身体过度后仰借力——全程躯干摆动不超过 15°，核心收紧',
+      '耸肩导致斜方肌过度参与——时刻保持沉肩，肩膀远离耳朵'
+    ]
+  },
+  {
+    id:'seated-cable-row', name:'坐姿划船', nameEn:'Machine Seated Cable Row', muscle:'back',
+    mwSlug:'machine-seated-cable-row', bv:'BV1m2421L7tw',
+    warmup:'1×15（轻重量，找肩胛骨收缩感）',
+    working:'4 组 × 10-12 次',
+    tempo:'拉回 2 秒 → 顶峰收缩 1 秒 → 还原 3 秒',
+    rest:'组间休息 60-90 秒',
+    equipment:'坐姿划船机 / 龙门架 + V柄',
+    steps:[
+      '坐在划船机上，双脚稳稳踩住踏板，膝盖微屈',
+      '双手握住 V 柄（窄握），手臂自然前伸，背部微微拉伸',
+      '挺胸收腹，脊柱保持中立位，肩膀下沉',
+      '用背部发力将手柄拉向腹部，肘部贴近身体向后移动',
+      '在收缩点挤压背部肌肉 1-2 秒，感受肩胛骨向中间靠拢',
+      '控制速度缓慢还原，背部保持张力，不要让重量片碰撞'
+    ],
+    mistakes:[
+      '腰部弯曲或弓背——全程脊柱中立，核心收紧',
+      '用手臂力量猛拉——想象用肘部向后"开路"，手臂只是传递工具',
+      '还原时身体过度前倾——躯干前后移动幅度控制在 10° 以内'
+    ]
+  },
+  {
+    id:'single-arm-row', name:'哑铃单臂划船', nameEn:'Dumbbell Single Arm Row', muscle:'back',
+    mwSlug:'dumbbell-single-arm-row', bv:'BV1ios2emEdV',
+    warmup:'1×12（每侧，轻重量激活）',
+    working:'3 组 × 10-12 次（每侧）',
+    tempo:'拉起 2 秒 → 顶峰收缩 1 秒 → 下放 3 秒',
+    rest:'组间休息 60 秒（做完一侧换另一侧不休息）',
+    equipment:'哑铃 + 平板凳',
+    steps:[
+      '一只手和同侧膝盖撑在平板凳上，另一只脚站在地面稳定身体',
+      '背部保持平直，与地面接近平行，头部自然放松',
+      '空闲手握住哑铃，手臂自然下垂，感受背阔肌的拉伸',
+      '用背部发力将哑铃拉向髋部外侧，肘部贴近身体向上移动',
+      '在顶端挤压背阔肌 1 秒，然后缓慢下放还原',
+      '全程控制节奏——拉起 2 秒，下放 3 秒，不要用惯性摆动'
+    ],
+    mistakes:[
+      '躯干旋转借力——想象背部是一块平板，只让手臂移动',
+      '哑铃拉向胸口而非髋部——轨迹应朝向髋部外侧才有效刺激背阔肌',
+      '使用过大重量导致动作变形——新手建议从 5-8kg 开始'
+    ]
+  },
+  {
+    id:'barbell-bent-over-row', name:'杠铃俯身划船', nameEn:'Barbell Bent Over Row', muscle:'back',
+    mwSlug:'barbell-bent-over-row', bv:'BV1xB4y1h755',
+    warmup:'1×15（空杆，熟悉俯身角度和轨迹）',
+    working:'4 组 × 8-10 次',
+    tempo:'拉起 2 秒 → 顶峰收缩 1 秒 → 下放 3 秒',
+    rest:'组间休息 90 秒',
+    equipment:'杠铃（新手可从空杆或轻重量开始）',
+    steps:[
+      '双脚与肩同宽站立，膝盖微屈，俯身至躯干与地面约 45°',
+      '双手正握杠铃，握距略宽于肩，手臂自然下垂',
+      '背部保持平直，核心收紧，头部与脊柱呈一条直线',
+      '用背部发力将杠铃沿大腿方向拉向下腹部，肘部贴近身体',
+      '在顶端用力挤压背部 1-2 秒，感受背阔肌和菱形肌收缩',
+      '控制下放至手臂伸直，全程保持俯身角度不变，不弓背不借力'
+    ],
+    mistakes:[
+      '弓背——全程保持背部平直，核心收紧，想象胸口朝前打开',
+      '俯身角度太高（接近直立）——躯干应接近 45°，太直变成直立划船',
+      '用腰部或腿部借力——身体除手臂外应保持稳定，控制节奏'
+    ]
+  },
+  {
+    id:'inverted-row', name:'反向划船（自重）', nameEn:'Inverted Row', muscle:'back',
+    mwSlug:'inverted-row', bv:'BV1AS4y1k747',
+    warmup:'1×8（找发力感，调整杠铃高度）',
+    working:'3 组 × 8-12 次（或力竭）',
+    tempo:'拉起 2 秒 → 顶峰收缩 1 秒 → 下放 3 秒',
+    rest:'组间休息 60 秒',
+    equipment:'史密斯机杠铃 / TRX / 低位单杠',
+    steps:[
+      '将杠铃设置在腰部高度（史密斯机）或使用 TRX 悬挂带',
+      '仰卧在杠铃下方，双手握住杠铃，握距略宽于肩',
+      '身体从头到脚呈一条直线，脚跟着地，核心和臀部收紧',
+      '用背部发力将胸部拉向杠铃，肘部贴近身体',
+      '在最高点挤压背部 1 秒，然后缓慢下放还原',
+      '杠铃越低难度越大——新手从较高位置开始，逐步降低'
+    ],
+    mistakes:[
+      '臀部下垂——全程核心收紧，身体保持直线',
+      '用手臂拉而非背部——想象用肘部驱动，胸部主动靠近杠铃',
+      '杠铃位置太低导致做不了——新手应设置在胸骨高度，逐步降低'
+    ]
+  },
+  // 备选（新手力量不足时可替换）
+  {
+    id:'dumbbell-pullover', name:'哑铃屈臂上拉', nameEn:'Dumbbell Pullover', muscle:'back',
+    mwSlug:'dumbbell-pullover', bv:'BV1j84y1m7AN',
+    warmup:'1×12（轻重量，感受背阔肌拉伸）',
+    working:'3 组 × 12-15 次',
+    tempo:'下放 3 秒 → 底端拉伸 1 秒 → 拉起 2 秒',
+    rest:'组间休息 45-60 秒',
+    equipment:'哑铃 + 平板凳',
+    steps:[
+      '仰卧在平板凳上，双手托住一只哑铃置于胸部正上方',
+      '手臂微屈（不锁死），这是起始位置',
+      '缓慢将哑铃向后下方放至头部后方，感受背阔肌和前锯肌的拉伸',
+      '在最低点稍作停顿，然后用背阔肌发力将哑铃拉回起始位置',
+      '全程保持手臂微屈角度不变，只有肩关节在运动',
+      '专注于背阔肌的拉伸和收缩感，不要用三头肌借力'
+    ],
+    mistakes:[
+      '手臂完全伸直——应保持微屈以保护肘关节',
+      '下放速度太快——离心阶段（下放）应控制在 3 秒以上',
+      '臀部抬起——全程保持臀部贴凳，核心收紧'
+    ]
+  },
+
+  // ═══════════════ 胸 day（5个正式动作 + 1个备选）═══════════════
+  {
+    id:'barbell-bench-press', name:'杠铃平板卧推', nameEn:'Barbell Bench Press', muscle:'chest',
+    mwSlug:'barbell-bench-press', bv:'BV1RC411H7jx',
+    warmup:'1×15（空杆）+ 1×8（50% 目标重量）',
+    working:'4 组 × 8-10 次',
+    tempo:'下放 3 秒 → 底端轻触停顿 1 秒 → 推起 2 秒',
+    rest:'组间休息 90-120 秒',
+    equipment:'杠铃 + 平板卧推架（新手建议用史密斯机）',
+    steps:[
+      '仰卧在平板凳上，眼睛位于杠铃正下方，双脚踏实地面',
+      '双手握杠铃，握距略宽于肩（约肩宽 1.3 倍），全握扣紧拇指',
+      '肩胛骨向后收紧下沉，挺起胸部，腰部与凳面保持自然空隙',
+      '出杠后将杠铃移至胸部正上方，手臂伸直但不锁死',
+      '吸气后缓慢下放杠铃至下胸位置（乳线附近），肘部与身体呈约 45°',
+      '杠铃轻触胸部后，用胸部发力推起至起始位置，推起时呼气'
+    ],
+    mistakes:[
+      '肘部打得太开（90° 外展）——应保持约 45°，减少肩关节压力',
+      '杠铃下放位置错误——太高（锁骨）伤肩，太低（腹部）无效，应在乳线位置',
+      '脚没有踩实地面——双脚应平稳踏地提供稳定基础，不要悬空或踮脚'
+    ]
+  },
+  {
+    id:'dumbbell-incline-bench-press', name:'哑铃上斜卧推', nameEn:'Dumbbell Incline Bench Press', muscle:'chest',
+    mwSlug:'dumbbell-incline-bench-press', bv:'BV1Dg4y1d75K',
+    warmup:'1×15（轻哑铃，激活上胸）',
+    working:'3 组 × 10-12 次',
+    tempo:'下放 3 秒 → 底端停顿 1 秒 → 推起 2 秒',
+    rest:'组间休息 60-90 秒',
+    equipment:'哑铃 + 可调角度凳（30-45°）',
+    steps:[
+      '将凳子调至上斜 30-45°（角度太高会变成练肩）',
+      '双手各持哑铃坐在凳上，用膝盖将哑铃踢起到肩膀位置',
+      '躺下后收紧肩胛骨，挺胸，哑铃位于上胸两侧',
+      '发力推起哑铃至胸部正上方，手臂伸直但不锁死',
+      '控制下放至哑铃与上胸齐平，感受上胸拉伸',
+      '在最低点稍作停顿（不要弹起），然后发力推起'
+    ],
+    mistakes:[
+      '凳子角度太高（超过 45°）——角度越大肩部参与越多，上胸刺激反而减少',
+      '哑铃推到头部正上方而非胸部正上方——保持哑铃在胸上方轨迹',
+      '哑铃下放时手臂打得太开——保持肘部约 45°，不要外展到 90°'
+    ]
+  },
+  {
+    id:'machine-pec-fly', name:'蝴蝶机夹胸', nameEn:'Machine Pec Fly', muscle:'chest',
+    mwSlug:'machine-pec-fly', bv:'BV14C3MzLEco',
+    warmup:'1×15（轻重量，找胸部挤压感）',
+    working:'3 组 × 12-15 次',
+    tempo:'夹拢 2 秒 → 挤压 1-2 秒 → 还原 3 秒',
+    rest:'组间休息 45-60 秒',
+    equipment:'蝴蝶机（Pec Deck）',
+    steps:[
+      '调整座椅高度，使手臂握柄时上臂与地面平行',
+      '背靠靠垫，挺胸收腹，前臂轻贴器械护垫',
+      '双手掌心相对握住手柄，肘部微屈约 120°',
+      '用胸部发力将两侧手柄向中间夹拢，想象"拥抱一棵大树"',
+      '在收缩点用力挤压胸肌 1-2 秒',
+      '缓慢控制还原，感受胸肌拉伸，不要让重量弹回去'
+    ],
+    mistakes:[
+      '用手臂力量夹而非胸肌发力——想象以肘部为驱动点而非手掌',
+      '还原时肘部过度后伸——保持胸肌始终有张力',
+      '速度太快利用惯性——夹胸 2 秒 + 挤压 1 秒 + 还原 3 秒'
+    ]
+  },
+  {
+    id:'machine-chest-press', name:'器械坐姿推胸', nameEn:'Machine Chest Press', muscle:'chest',
+    mwSlug:'machine-chest-press', bv:'BV1AC411x7np',
+    warmup:'1×15（轻重量，激活胸肌）',
+    working:'3 组 × 10-12 次',
+    tempo:'推起 2 秒 → 顶端控制 1 秒 → 还原 3 秒',
+    rest:'组间休息 60-90 秒',
+    equipment:'坐姿推胸机',
+    steps:[
+      '调整座椅高度，使握把与胸中部齐平（乳头线高度）',
+      '坐稳后背部紧贴靠垫，双脚踏实地面',
+      '双手握住握把，肩胛骨收紧，挺胸',
+      '用胸部发力将握把向前推至手臂伸直（不锁死）',
+      '在顶端稍作停顿，感受胸肌收缩',
+      '控制还原至起始位置，肘部不超过身体平面'
+    ],
+    mistakes:[
+      '座椅高度不对——过高变成练肩，过低变成练三头',
+      '推起时肘部完全锁死——保持微屈保护关节',
+      '利用身体晃动借力——核心收紧，保持躯干稳定'
+    ]
+  },
+  {
+    id:'push-up', name:'俯卧撑', nameEn:'Push Up', muscle:'chest',
+    mwSlug:'push-up', bv:'BV1sM41197pk',
+    warmup:'1×10（跪姿俯卧撑热身）',
+    working:'3 组 × 力竭（做到做不动为止）',
+    tempo:'下降 2 秒 → 底端停顿 1 秒 → 推起 2 秒',
+    rest:'组间休息 60 秒',
+    equipment:'无需器械（自重训练）',
+    steps:[
+      '双手撑地，略宽于肩，手指朝前，身体从头到脚呈一条直线',
+      '收紧核心和臀部，不要塌腰也不要拱背',
+      '吸气，弯曲手肘，有控制地下降身体，肘部向外打开约 45°',
+      '下降到胸部接近地面（距地面一拳高度），在最低点稍作停顿',
+      '用胸部发力推起身体，回到起始位置，手臂伸直但不锁死',
+      '全程保持身体紧绷成一条直线。做不了标准版可做跪姿版'
+    ],
+    mistakes:[
+      '塌腰——核心和臀部没有收紧，腰部下塌会增加腰椎压力',
+      '手掌位置不对——太靠前或太靠后，应位于肩膀正下方或略宽',
+      '只做半程——下降不到位或推起不到位，动作质量比数量重要'
+    ]
+  },
+  // 备选
+  {
+    id:'decline-push-up', name:'下斜俯卧撑', nameEn:'Decline Push Up', muscle:'chest',
+    mwSlug:'decline-push-up', bv:'BV1sM41197pk',
+    warmup:'1×8（标准俯卧撑热身）',
+    working:'3 组 × 8-12 次（或力竭）',
+    tempo:'下降 2 秒 → 底端停顿 1 秒 → 推起 2 秒',
+    rest:'组间休息 60 秒',
+    equipment:'凳子 / 台阶（脚垫高）',
+    steps:[
+      '双脚放在凳子上（约 30-50cm 高），双手撑地与肩同宽',
+      '身体从头到脚呈一条直线，收紧核心和臀部',
+      '弯曲手肘有控制地下降，肘部向外打开约 45°',
+      '下降至胸部接近地面，底端稍作停顿',
+      '用上胸发力推起身体回到起始位置',
+      '脚越高难度越大，侧重上胸——新手从低高度开始'
+    ],
+    mistakes:[
+      '塌腰——核心始终保持收紧',
+      '肘部打得太开——保持 45° 左右',
+      '脚垫太高导致动作变形——循序渐进增加高度'
+    ]
+  },
+
+  // ═══════════════ 肩 day（5个正式动作 + 1个备选）═══════════════
+  {
+    id:'overhead-press', name:'杠铃站姿推举', nameEn:'Overhead Press', muscle:'shoulder',
+    mwSlug:'overhead-press', bv:'BV1Z841187pJ',
+    warmup:'1×15（空杆或最轻哑铃）+ 1×10（50% 重量）',
+    working:'4 组 × 8-10 次',
+    tempo:'推起 2 秒 → 顶端控制 1 秒 → 下放 3 秒',
+    rest:'组间休息 60-90 秒',
+    equipment:'杠铃 / 哑铃（新手可用哑铃降低难度）',
+    steps:[
+      '站立双脚与肩同宽，双手握杠铃置于锁骨前方，握距略宽于肩',
+      '核心收紧，臀部夹紧，不要后仰',
+      '将杠铃垂直向上推至头顶正上方，头部微微后让出空间',
+      '在顶端手臂伸直但不锁死，杠铃在头顶正上方',
+      '控制下放回锁骨前方位置，全程保持核心收紧',
+      '新手可用哑铃代替杠铃——哑铃版即哑铃坐姿推举，下背压力更小'
+    ],
+    mistakes:[
+      '腰部过度后仰借力——核心和臀部收紧，保持躯干直立',
+      '杠铃轨迹不垂直——推举时应是直线，前后偏移会浪费力量',
+      '握距过宽——握距应略宽于肩，太宽会减少三角肌参与'
+    ]
+  },
+  {
+    id:'dumbbell-lateral-raise', name:'哑铃侧平举', nameEn:'Dumbbell Lateral Raise', muscle:'shoulder',
+    mwSlug:'dumbbell-lateral-raise', bv:'BV1UN41157u9',
+    warmup:'1×15（空手或最轻哑铃，感受中束）',
+    working:'4 组 × 12-15 次',
+    tempo:'抬起 2 秒 → 顶端停顿 1 秒 → 下放 3 秒',
+    rest:'组间休息 45-60 秒',
+    equipment:'轻哑铃（新手 2-5kg）',
+    steps:[
+      '站立，双脚与肩同宽，双手各持轻哑铃置于身体两侧',
+      '膝盖微屈，身体微微前倾，核心收紧',
+      '肘部微屈约 150°，保持此角度不变（全程锁死肘角）',
+      '用肩部中束发力，将哑铃向身体两侧抬起至与肩平行',
+      '在顶端稍作停顿，小指略高于拇指（大臂微外旋），感受中束灼烧感',
+      '缓慢下放还原（约 3 秒），控制离心，不要自由落体'
+    ],
+    mistakes:[
+      '重量过大导致斜方肌代偿（耸肩）——侧平举追求感受而非重量，2-5kg 足够',
+      '手臂抬得太高（超过肩膀）——高于肩膀后斜方肌参与增加，平行即可',
+      '利用身体摆动借力——核心收紧，保持躯干稳定，想象手肘向外"指"'
+    ]
+  },
+  {
+    id:'rear-delt-fly', name:'哑铃反向飞鸟', nameEn:'Rear Delt Fly', muscle:'shoulder',
+    mwSlug:'rear-delt-fly', bv:'BV1TbfZBdEtu',
+    warmup:'1×12（最轻重量，激活后束）',
+    working:'3 组 × 12-15 次',
+    tempo:'展开 2 秒 → 顶峰收缩 1-2 秒 → 还原 3 秒',
+    rest:'组间休息 45-60 秒',
+    equipment:'轻哑铃（新手 2-4kg）',
+    steps:[
+      '双手各持轻哑铃，俯身直至躯干接近与地面平行',
+      '膝盖微屈，背部保持平直，头部自然放松',
+      '手臂自然下垂，掌心相对，肘部微屈约 150°',
+      '用后束发力将双臂向身体两侧展开，手臂与身体呈 90°',
+      '在顶端挤压后束 1-2 秒，然后缓慢下放还原',
+      '全程保持肘部角度不变，只有肩关节在运动'
+    ],
+    mistakes:[
+      '重量太大导致腰部借力——反向飞鸟用小重量（2-4kg），追求后束灼烧感',
+      '手臂打得太直——保持微屈可以更好隔离后束，减少三头参与',
+      '背部弓起——全程脊柱中立，核心收紧支撑，不要塌腰或弓背'
+    ]
+  },
+  {
+    id:'dumbbell-front-raise', name:'哑铃前平举', nameEn:'Dumbbell Front Raise', muscle:'shoulder',
+    mwSlug:'dumbbell-front-raise', bv:'BV1RSdiY6EzB',
+    warmup:'1×15（轻重量，激活前束）',
+    working:'3 组 × 12-15 次',
+    tempo:'抬起 2 秒 → 顶端停顿 1 秒 → 下放 3 秒',
+    rest:'组间休息 45-60 秒',
+    equipment:'哑铃（新手 2-5kg）或杠铃片',
+    steps:[
+      '站立双脚与肩同宽，双手各持哑铃，手臂自然下垂在大腿前方',
+      '肘部微屈约 160°（不锁死），这是起始位置',
+      '用三角肌前束发力，将哑铃向前方抬起至与肩膀齐平或略低',
+      '在顶端稍作停顿，然后缓慢控制下放（不要自由落体）',
+      '全程身体稳定，核心和臀部收紧，不要用腰部后仰借力',
+      '可以双手同时或交替进行（交替能更好感受单侧发力）'
+    ],
+    mistakes:[
+      '身体后仰借力——收紧核心和臀部，保持躯干直立',
+      '抬得过高（远超过肩膀）——超过肩膀后斜方肌开始主导',
+      '下放没有控制——离心阶段对前束刺激很大，不要自由落体'
+    ]
+  },
+  {
+    id:'machine-reverse-fly', name:'蝴蝶机反向飞鸟', nameEn:'Machine Reverse Fly', muscle:'shoulder',
+    mwSlug:'machine-reverse-fly', bv:'BV1br5S6bER1',
+    warmup:'1×15（轻重量，感受后束收缩）',
+    working:'3 组 × 12-15 次',
+    tempo:'展开 2 秒 → 顶峰收缩 2 秒 → 还原 3 秒',
+    rest:'组间休息 45-60 秒',
+    equipment:'蝴蝶机（反向使用）',
+    steps:[
+      '蝴蝶机手柄调至最外侧位置',
+      '面对靠背坐下（与常规夹胸方向相反），胸部轻贴靠垫',
+      '双手握住手柄，掌心朝下，手臂在身体前方略微伸直',
+      '用后束发力将手柄向身体后方展开，手臂与身体呈 90°',
+      '在展开终点挤压后束 2 秒，感受肩胛骨靠拢',
+      '缓慢控制还原（3 秒），保持后束持续张力'
+    ],
+    mistakes:[
+      '手臂过于弯曲——保持微屈角度固定，让后束做主导',
+      '还原时速度太快——慢还原（离心）对后束刺激远大于展开',
+      '耸肩导致斜方肌代偿——保持沉肩，注意力集中在后束挤压感'
+    ]
+  },
+  // 备选
+  {
+    id:'arnold-press', name:'阿诺德推举', nameEn:'Arnold Press', muscle:'shoulder',
+    mwSlug:'arnold-press', bv:'BV1Z841187pJ',
+    warmup:'1×12（轻重量，肩关节充分热身）',
+    working:'3 组 × 10-12 次',
+    tempo:'推起 2 秒 → 顶端旋转 1 秒 → 下放 3 秒',
+    rest:'组间休息 60-90 秒',
+    equipment:'哑铃 + 带靠背的凳子',
+    steps:[
+      '坐在有靠背的凳子上，双手各持哑铃，掌心朝向自己（对握）',
+      '哑铃置于下巴前方的胸前位置，肘部在身体前方',
+      '向上推起哑铃的同时，旋转手腕使掌心从对握变为朝前',
+      '推到顶端时手臂伸直但不锁死，掌心完全朝前',
+      '沿原轨迹返回——下放时旋转回对握姿势，回到胸前位置',
+      '旋转动作让前束、中束、后束都能参与，是三束综合训练'
+    ],
+    mistakes:[
+      '旋转时机不对——应在推起过程中平滑旋转，而非推到顶端再转',
+      '背部离开靠背——全程贴紧靠背，核心收紧',
+      '重量太大——阿诺德推举对肩关节活动度要求高，新手从小重量开始'
+    ]
+  }
+];
+
+// ============================================================================
+// UI 渲染
+// ============================================================================
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+
+function renderAll() {
+  const m = getTodayMuscle();
+  renderHeader(m);
+  renderCycleBar();
+  if (m === 'rest') { renderRestDay(); } else { renderTodayWorkout(m); }
+  renderLibrary(currentLibTab);
+}
+
+function renderHeader(muscle) {
+  const h = $('#header');
+  h.className = 'header ' + muscle;
+  $('#dayEmoji').textContent = {back:'💪',chest:'🔥',shoulder:'🏋️',rest:'😴'}[muscle];
+  $('#dayLabel').textContent = CYCLE_NAMES[muscle];
+  $('#dayTitle').textContent = CYCLE_NAMES[muscle];
+  $('#motivation').textContent = MOTIVATIONS[muscle];
+  const now = new Date();
+  const wd = ['日','一','二','三','四','五','六'];
+  $('#todayDate').textContent = `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 星期${wd[now.getDay()]}`;
+}
+
+function renderCycleBar() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const mod = getDaysDiff() % 4;
+  const em = {back:'💪',chest:'🔥',shoulder:'🏋️',rest:'😴'};
+  let h = '<h3>📅 训练周期（4日循环：背→胸→肩→休息）</h3><div class="cycle-days">';
+  for (let o = -2; o <= 2; o++) {
+    const d = new Date(today); d.setDate(d.getDate()+o);
+    const m = CYCLE[((mod+o)%4+4)%4];
+    h += `<div class="cycle-day ${m}${o===0?' today':''}">
+      <span class="cyc-date">${d.getMonth()+1}/${d.getDate()}</span>
+      <span class="cyc-emoji">${em[m]}</span>
+      <span class="cyc-label">${CYCLE_NAMES[m]}</span></div>`;
+  }
+  h += '</div>';
+  $('#cycleBar').innerHTML = h;
+}
+
+function renderTodayWorkout(muscle) {
+  $('#restSection').style.display = 'none';
+  $('#todaySection').style.display = 'block';
+  // 今日只显示前5个正式动作（备选动作在动作库中可见）
+  const exs = EXERCISES.filter(e => e.muscle === muscle).slice(0, 5);
+  $('#todayList').innerHTML = exs.map((ex,i) => makeCard(ex,i)).join('');
+}
+
+function renderRestDay() {
+  $('#todaySection').style.display = 'none';
+  const tip = REST_TIPS[Math.floor(Math.random()*REST_TIPS.length)];
+  $('#restSection').style.display = 'block';
+  $('#restSection').innerHTML = `
+    <div class="rest-day-hint">
+      <span class="rest-emoji">😴</span>
+      <h3>今天是休息日</h3><p>${tip}</p>
+      <p style="margin-top:12px;font-size:13px;">明天继续：<strong style="color:var(--back)">背日</strong></p>
+    </div>`;
+}
+
+// ============================================================================
+// 动作卡片
+// ============================================================================
+function makeCard(ex, index) {
+  return `
+  <div class="exercise-card" data-id="${ex.id}">
+    <div class="card-header" onclick="toggleCard(this)">
+      <div class="card-index">${String(index+1).padStart(2,'0')}</div>
+      <div class="card-info">
+        <div class="card-name">${ex.name} <span style="font-weight:400;font-size:12px;color:var(--text-muted)">${ex.nameEn}</span></div>
+        <div class="card-meta"><span>📊 ${ex.working}</span><span>⏱ ${ex.rest}</span></div>
+      </div>
+      <div class="card-arrow">▼</div>
+    </div>
+    <div class="card-detail">
+      <table class="params-table">
+        <tr><td>🏋️ 器械</td><td>${ex.equipment}</td></tr>
+        <tr><td>🔥 热身组</td><td>${ex.warmup}</td></tr>
+        <tr><td>💪 正式组</td><td><span class="val-highlight">${ex.working}</span></td></tr>
+        <tr><td>⏱ 组间休息</td><td>${ex.rest}</td></tr>
+        <tr><td>🎯 动作节奏</td><td>${ex.tempo}</td></tr>
+      </table>
+      <div class="detail-section">
+        <h4>📝 动作要领</h4>
+        <ol class="step-list">${ex.steps.map((s,i) => `<li data-step="${String(i+1).padStart(2,'0')}">${s}</li>`).join('')}</ol>
+      </div>
+      <div class="detail-section">
+        <h4>⚠️ 常见错误</h4>
+        <ul class="mistake-list">${ex.mistakes.map(m => `<li>${m}</li>`).join('')}</ul>
+      </div>
+      <div class="video-links">
+        <a class="mw-link" href="https://musclewiki.com/zh-cn/exercise/${ex.mwSlug}" target="_blank" rel="noopener">
+          🎬 MuscleWiki 动作演示（GIF动画 + 肌肉图解）
+        </a>
+        <a class="bili-link" href="https://www.bilibili.com/video/${ex.bv}" target="_blank" rel="noopener">
+          ▶ B站中文教学视频
+        </a>
+      </div>
+    </div>
+  </div>`;
+}
+
+function toggleCard(headerEl) {
+  const card = headerEl.parentElement;
+  $$('.exercise-card.expanded').forEach(c => { if (c !== card) c.classList.remove('expanded'); });
+  card.classList.toggle('expanded');
+}
+
+// ============================================================================
+// 动作库（显示全部6个，含备选动作）
+// ============================================================================
+let currentLibTab = 'back';
+function renderLibrary(muscle) {
+  const exs = EXERCISES.filter(e => e.muscle === muscle);
+  $('#libraryList').innerHTML = exs.map((ex,i) => makeCard(ex,i)).join('');
+}
+$$('.tag-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    $$('.tag-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    currentLibTab = this.dataset.muscle;
+    renderLibrary(currentLibTab);
+  });
+});
+
+// ============================================================================
+// 跳过今天
+// ============================================================================
+$('#skipBtn').addEventListener('click', () => $('#skipModal').classList.add('show'));
+$('#btnCancel').addEventListener('click', () => $('#skipModal').classList.remove('show'));
+$('#btnConfirm').addEventListener('click', () => {
+  skipToday(); $('#skipModal').classList.remove('show'); renderAll();
+  showToast('✅ 已顺延，今天是 ' + CYCLE_NAMES[getTodayMuscle()]);
+});
+$('#skipModal').addEventListener('click', function(e) { if (e.target===this) this.classList.remove('show'); });
+
+// ============================================================================
+// 设置
+// ============================================================================
+function updateSettingsUI() { $('#startDateInput').value = getStartDate().toISOString().split('T')[0]; }
+$('#saveStartDate').addEventListener('click', () => {
+  const val = $('#startDateInput').value; if (!val) return;
+  const d = new Date(val); if (isNaN(d)) return;
+  saveStartDate(d); renderAll();
+  showToast('✅ 起始日期已更新，计划重新对齐');
+});
+function showToast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { $('#skipModal').classList.remove('show'); $$('.exercise-card.expanded').forEach(c => c.classList.remove('expanded')); }
+});
+
+updateSettingsUI();
+renderAll();
+console.log('🏋️ 新手健身追踪器 · 数据来源 MuscleWiki · 背→胸→肩→休息');
+</script>
+</body>
+</html>
