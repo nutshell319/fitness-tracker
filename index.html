@@ -56,6 +56,8 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
 .cycle-day.shoulder .cyc-label { color: var(--shoulder); }
 .cycle-day.abs .cyc-label { color: var(--abs); }
 .cycle-day.cardio .cyc-label { color: var(--cardio); opacity: 0.7; }
+.cycle-day.skipped { opacity: 0.35; text-decoration: line-through; }
+.cycle-day.skipped .cyc-label { color: var(--danger); }
 
 .section-title { font-size: 18px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
 .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
@@ -244,7 +246,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
 <div class="modal-overlay" id="skipModal">
   <div class="modal-box">
     <h3>确认跳过今天？</h3>
-    <p>今天的训练将推迟到明天，整个计划整体后移一天。</p>
+    <p>今天标记为已跳过，训练计划整体后移一天。明天继续今天的计划。</p>
     <div class="modal-actions">
       <button class="btn-cancel" id="btnCancel">取消</button>
       <button class="btn-confirm" id="btnConfirm">确认顺延</button>
@@ -293,6 +295,7 @@ const MOTIVATIONS = {
 // LocalStorage
 // ============================================================================
 const STORAGE_KEY = 'ft_start_date';
+const SKIP_KEY = 'ft_skip_dates';
 const CUSTOM_PLAN_PREFIX = 'ft_custom_';
 
 function getStartDate() {
@@ -300,7 +303,52 @@ function getStartDate() {
   if (raw) { const d = new Date(raw); if (!isNaN(d)) return d; }
   const today = new Date(); today.setHours(0,0,0,0); saveStartDateRaw(today); return today;
 }
-// 撤销机制：每次写入前快照旧值，底部展示持久撤销条
+function todayStr() { return new Date().toISOString().split('T')[0]; }
+
+// 跳过的日期列表
+function getSkipDates() {
+  try { const raw = localStorage.getItem(SKIP_KEY); return raw ? JSON.parse(raw) : []; } catch(e) { return []; }
+}
+function isDateSkipped(dateStr) { return getSkipDates().includes(dateStr); }
+function isTodaySkipped() { return isDateSkipped(todayStr()); }
+
+// 计算从起始日到今天之间，有多少个非跳过日（有效训练日）
+function getDaysDiff() {
+  const start = getStartDate();
+  const today = new Date(); today.setHours(0,0,0,0);
+  const skipSet = new Set(getSkipDates());
+  let count = 0;
+  const d = new Date(start);
+  while (d <= today) {
+    if (!skipSet.has(d.toISOString().split('T')[0])) count++;
+    d.setDate(d.getDate() + 1);
+  }
+  return count - 1; // 起始日当天 = 第 0 天
+}
+
+// 今天的训练部位（跳过日返回 'skipped'）
+function getTodayMuscle() {
+  if (isTodaySkipped()) return 'skipped';
+  return CYCLE[((getDaysDiff() % 5) + 5) % 5];
+}
+
+// 计算某一天对应的训练部位（用于周期条）
+function getMuscleForDate(date) {
+  const ds = date.toISOString().split('T')[0];
+  if (isDateSkipped(ds)) return 'skipped';
+  const start = getStartDate();
+  const skipSet = new Set(getSkipDates());
+  let count = 0;
+  const d = new Date(start);
+  while (d <= date) {
+    if (!skipSet.has(d.toISOString().split('T')[0])) count++;
+    d.setDate(d.getDate() + 1);
+  }
+  const idx = count - 1;
+  return CYCLE[((idx % 5) + 5) % 5];
+}
+
+// 撤销机制
 let lastUndo = null;
 function snapshotUndo(undoFn, label) {
   lastUndo = {undo: undoFn, label: label};
@@ -325,18 +373,17 @@ function saveStartDate(d) {
   snapshotUndo(() => { if (old) localStorage.setItem(STORAGE_KEY, old); else localStorage.removeItem(STORAGE_KEY); }, '修改起始日期');
   localStorage.setItem(STORAGE_KEY, d.toISOString().split('T')[0]);
 }
-function getDaysDiff() {
-  const start = getStartDate();
-  const today = new Date(); today.setHours(0,0,0,0);
-  return Math.floor((today - start) / 86400000);
-}
-function getTodayMuscle() { return CYCLE[((getDaysDiff() % 5) + 5) % 5]; }
+function saveStartDateRaw(d) { localStorage.setItem(STORAGE_KEY, d.toISOString().split('T')[0]); }
+
+// 跳过今天：将今天加入跳过列表，不影响起始日
 function skipToday() {
-  const old = localStorage.getItem(STORAGE_KEY);
-  snapshotUndo(() => { if (old) localStorage.setItem(STORAGE_KEY, old); }, '跳过今天');
-  const s = getStartDate(); s.setDate(s.getDate()+1); saveStartDateRaw(s);
+  if (isTodaySkipped()) return;
+  const ts = todayStr();
+  const oldSkips = getSkipDates();
+  snapshotUndo(() => { localStorage.setItem(SKIP_KEY, JSON.stringify(oldSkips)); }, '跳过今天');
+  const newSkips = [...oldSkips, ts];
+  localStorage.setItem(SKIP_KEY, JSON.stringify(newSkips));
 }
-function saveStartDateRaw(d) { localStorage.setItem(STORAGE_KEY, d.toISOString().split('T')[0]); } // 内部用，不产生快照
 
 function getCustomPlan(muscle) {
   try {
@@ -442,40 +489,64 @@ function renderAll() {
   const m = getTodayMuscle();
   renderHeader(m);
   renderCycleBar();
-  if (m === 'cardio') { renderCardioDay(); }
+  if (m === 'skipped') { renderSkippedDay(); }
+  else if (m === 'cardio') { renderCardioDay(); }
   else { renderTodayWorkout(m); }
   renderLibrary(currentLibTab);
 }
 
+function renderSkippedDay() {
+  $('#todaySection').style.display = 'block';
+  $('#cardioSection').style.display = 'none';
+  $('#todaySectionTitle').textContent = '⏭ 今日已跳过';
+  const nextMuscle = getMuscleForDate(new Date(new Date().setDate(new Date().getDate() + 1)));
+  $('#todayList').innerHTML = `
+    <div class="cardio-day-content" style="text-align:center;padding:40px 24px;">
+      <span style="font-size:60px;display:block;margin-bottom:12px;">⏭</span>
+      <h3 style="margin-bottom:8px;color:var(--text-secondary);">今天已跳过</h3>
+      <p style="color:var(--text-muted);font-size:14px;line-height:1.7;">
+        训练计划已整体后移一天<br>
+        明天恢复：<strong style="color:var(--primary);">${CYCLE_NAMES[nextMuscle] || nextMuscle}</strong>
+      </p>
+      <p style="color:var(--text-muted);font-size:12px;margin-top:10px;">
+        如需还原，点底部"↩ 撤销"按钮
+      </p>
+    </div>`;
+}
+
 function renderHeader(muscle) {
   const h = $('#header');
-  h.className = 'header ' + muscle;
-  const em = {back:'💪',chest:'🔥',shoulder:'🏋️',abs:'🧱',cardio:'🚶'};
-  $('#dayEmoji').textContent = em[muscle];
-  $('#dayLabel').textContent = CYCLE_NAMES[muscle];
-  $('#dayTitle').textContent = CYCLE_NAMES[muscle];
-  $('#motivation').textContent = MOTIVATIONS[muscle];
+  h.className = 'header ' + (muscle === 'skipped' ? 'cardio' : muscle);
+  const em = {back:'💪',chest:'🔥',shoulder:'🏋️',abs:'🧱',cardio:'🚶',skipped:'⏭'};
+  const names = {...CYCLE_NAMES, skipped:'已跳过'};
+  const mots = {...MOTIVATIONS, skipped:'今天休息，训练计划已整体后移'};
+  $('#dayEmoji').textContent = em[muscle] || '⏭';
+  $('#dayLabel').textContent = names[muscle] || '已跳过';
+  $('#dayTitle').textContent = names[muscle] || '已跳过';
+  $('#motivation').textContent = mots[muscle] || '今天休息，训练计划已整体后移';
   const now = new Date();
   const wd = ['日','一','二','三','四','五','六'];
   $('#todayDate').textContent = `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 星期${wd[now.getDay()]}`;
-  if (muscle === 'cardio') {
+  if (muscle === 'cardio' || muscle === 'skipped') {
     $('#customPlanBtn').style.display = 'none';
+    $('#skipBtn').style.display = muscle === 'skipped' ? 'none' : '';
     $('#skipBtn').textContent = '⏭ 今天休息，顺延一天';
   } else {
     $('#customPlanBtn').style.display = '';
+    $('#skipBtn').style.display = '';
     $('#skipBtn').textContent = '⏭ 今天练不了，顺延一天';
   }
 }
 
 function renderCycleBar() {
   const today = new Date(); today.setHours(0,0,0,0);
-  const mod = ((getDaysDiff() % 5) + 5) % 5;
-  const em = {back:'💪',chest:'🔥',shoulder:'🏋️',abs:'🧱',cardio:'🚶'};
+  const em = {back:'💪',chest:'🔥',shoulder:'🏋️',abs:'🧱',cardio:'🚶',skipped:'⏭'};
+  const names = {...CYCLE_NAMES, skipped:'跳过'};
   let h = '<h3>📅 训练周期（5日循环：背→胸→肩→腹→有氧）</h3><div class="cycle-days">';
   for (let o = -2; o <= 2; o++) {
     const d = new Date(today); d.setDate(d.getDate()+o);
-    const m = CYCLE[((mod+o)%5+5)%5];
-    h += `<div class="cycle-day ${m}${o===0?' today':''}"><span class="cyc-date">${d.getMonth()+1}/${d.getDate()}</span><span class="cyc-emoji">${em[m]}</span><span class="cyc-label">${CYCLE_NAMES[m]}</span></div>`;
+    const m = getMuscleForDate(d);
+    h += `<div class="cycle-day ${m==='skipped'?'skipped':m}${o===0?' today':''}"><span class="cyc-date">${d.getMonth()+1}/${d.getDate()}</span><span class="cyc-emoji">${em[m]}</span><span class="cyc-label">${names[m]}</span></div>`;
   }
   h += '</div>';
   $('#cycleBar').innerHTML = h;
@@ -536,9 +607,8 @@ $$('.tag-btn').forEach(btn => {
 $('#skipBtn').addEventListener('click', () => $('#skipModal').classList.add('show'));
 $('#btnCancel').addEventListener('click', () => $('#skipModal').classList.remove('show'));
 $('#btnConfirm').addEventListener('click', () => {
-  const skipped = getTodayMuscle();
   skipToday(); $('#skipModal').classList.remove('show'); renderAll();
-  showToast('✅ 已跳过，' + CYCLE_NAMES[skipped] + '推迟到明天');
+  showToast('✅ 今天已跳过，计划整体后移一天');
 });
 $('#skipModal').addEventListener('click', function(e) { if (e.target===this) this.classList.remove('show'); });
 
