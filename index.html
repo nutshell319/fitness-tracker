@@ -298,12 +298,16 @@ const STORAGE_KEY = 'ft_start_date';
 const SKIP_KEY = 'ft_skip_dates';
 const CUSTOM_PLAN_PREFIX = 'ft_custom_';
 
+// 日期工具：全部使用本地时间，避免 UTC 时区偏差（中国 UTC+8）
+function parseLocalDate(str) { const [y,m,d]=str.split('-').map(Number); return new Date(y,m-1,d); }
+function formatLocalDate(d) { const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dt=String(d.getDate()).padStart(2,'0'); return y+'-'+m+'-'+dt; }
+function todayStr() { return formatLocalDate(new Date()); }
+
 function getStartDate() {
   const raw = localStorage.getItem(STORAGE_KEY);
-  if (raw) { const d = new Date(raw); if (!isNaN(d)) return d; }
+  if (raw) { const d = parseLocalDate(raw); if (!isNaN(d)) return d; }
   const today = new Date(); today.setHours(0,0,0,0); saveStartDateRaw(today); return today;
 }
-function todayStr() { return new Date().toISOString().split('T')[0]; }
 
 // 跳过的日期列表
 function getSkipDates() {
@@ -320,7 +324,7 @@ function getDaysDiff() {
   let count = 0;
   const d = new Date(start);
   while (d <= today) {
-    if (!skipSet.has(d.toISOString().split('T')[0])) count++;
+    if (!skipSet.has(formatLocalDate(d))) count++;
     d.setDate(d.getDate() + 1);
   }
   return count - 1; // 起始日当天 = 第 0 天
@@ -334,14 +338,14 @@ function getTodayMuscle() {
 
 // 计算某一天对应的训练部位（用于周期条）
 function getMuscleForDate(date) {
-  const ds = date.toISOString().split('T')[0];
+  const ds = formatLocalDate(date);
   if (isDateSkipped(ds)) return 'skipped';
   const start = getStartDate();
   const skipSet = new Set(getSkipDates());
   let count = 0;
   const d = new Date(start);
   while (d <= date) {
-    if (!skipSet.has(d.toISOString().split('T')[0])) count++;
+    if (!skipSet.has(formatLocalDate(d))) count++;
     d.setDate(d.getDate() + 1);
   }
   const idx = count - 1;
@@ -371,9 +375,9 @@ function performUndo() {
 function saveStartDate(d) {
   const old = localStorage.getItem(STORAGE_KEY);
   snapshotUndo(() => { if (old) localStorage.setItem(STORAGE_KEY, old); else localStorage.removeItem(STORAGE_KEY); }, '修改起始日期');
-  localStorage.setItem(STORAGE_KEY, d.toISOString().split('T')[0]);
+  localStorage.setItem(STORAGE_KEY, formatLocalDate(d));
 }
-function saveStartDateRaw(d) { localStorage.setItem(STORAGE_KEY, d.toISOString().split('T')[0]); }
+function saveStartDateRaw(d) { localStorage.setItem(STORAGE_KEY, formatLocalDate(d)); }
 
 // 跳过今天：将今天加入跳过列表，不影响起始日
 function skipToday() {
@@ -665,7 +669,7 @@ $('#btnResetPlan').addEventListener('click', resetCurrentPlan);
 $('#customPlanModal').addEventListener('click', function(e) { if (e.target===this) closeCustomPlan(); });
 
 // 设置
-function updateSettingsUI() { $('#startDateInput').value = getStartDate().toISOString().split('T')[0]; }
+function updateSettingsUI() { $('#startDateInput').value = formatLocalDate(getStartDate()); }
 $('#saveStartDate').addEventListener('click', () => {
   const val = $('#startDateInput').value; if (!val) return;
   const d = new Date(val); if (isNaN(d)) return;
@@ -676,7 +680,7 @@ $('#saveStartDate').addEventListener('click', () => {
     if (oldStart) localStorage.setItem(STORAGE_KEY, oldStart);
     localStorage.setItem(SKIP_KEY, JSON.stringify(oldSkips));
   }, '修改起始日期');
-  localStorage.setItem(STORAGE_KEY, d.toISOString().split('T')[0]);
+  localStorage.setItem(STORAGE_KEY, formatLocalDate(d));
   localStorage.removeItem(SKIP_KEY);
   renderAll();
   showToast('✅ 起始日期已更新，跳过记录已清空');
