@@ -238,6 +238,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
         <button id="saveStartDate">保存</button>
       </div>
       <p class="settings-hint">起始日为<b>背日</b>，按 背→胸→肩→腹→有氧 5 日循环（练四休一）</p>
+      <button id="resetAllBtn" style="margin-top:16px;padding:8px 16px;background:transparent;border:1px solid var(--danger);color:var(--danger);border-radius:20px;cursor:pointer;font-size:13px;font-family:var(--font);">🗑 清空所有数据（重新开始）</button>
     </div>
   </details>
 </div>
@@ -685,6 +686,15 @@ $('#saveStartDate').addEventListener('click', () => {
   renderAll();
   showToast('✅ 起始日期已更新，跳过记录已清空');
 });
+// 清空所有数据
+$('#resetAllBtn').addEventListener('click', () => {
+  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(SKIP_KEY);
+  ['back','chest','shoulder','abs'].forEach(m => localStorage.removeItem(CUSTOM_PLAN_PREFIX + m));
+  clearUndo();
+  location.reload();
+});
+
 function showToast(msg) {
   const t = $('#toast'); t.textContent = msg; t.classList.add('show');
   clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), 2500);
