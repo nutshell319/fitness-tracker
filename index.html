@@ -164,8 +164,10 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
 
 .error-notice { background: rgba(232,93,117,0.1); border: 1px solid rgba(232,93,117,0.3); border-radius: var(--radius-sm); padding: 10px 14px; margin-bottom: 12px; font-size: 13px; color: var(--danger); display: none; }
 
-.toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: var(--primary); color: #fff; padding: 12px 24px; border-radius: 24px; font-size: 14px; font-weight: 600; z-index: 1000; pointer-events: none; opacity: 0; transition: opacity 0.3s, transform 0.3s; box-shadow: 0 4px 20px rgba(255,107,53,0.3); }
-.toast.show { opacity: 1; transform: translateX(-50%) translateY(4px); }
+.toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: var(--primary); color: #fff; padding: 12px 24px; border-radius: 24px; font-size: 14px; font-weight: 600; z-index: 1000; pointer-events: none; opacity: 0; transition: opacity 0.3s, transform 0.3s; box-shadow: 0 4px 20px rgba(255,107,53,0.3); display: flex; align-items: center; gap: 12px; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(4px); pointer-events: auto; }
+.toast .undo-link { background: rgba(255,255,255,0.2); color: #fff; border: none; padding: 4px 12px; border-radius: 12px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--font); white-space: nowrap; }
+.toast .undo-link:hover { background: rgba(255,255,255,0.35); }
 
 @media (max-width: 600px) {
   .app { padding: 12px 10px 40px; }
@@ -282,16 +284,38 @@ const CUSTOM_PLAN_PREFIX = 'ft_custom_';
 function getStartDate() {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) { const d = new Date(raw); if (!isNaN(d)) return d; }
-  const today = new Date(); today.setHours(0,0,0,0); saveStartDate(today); return today;
+  const today = new Date(); today.setHours(0,0,0,0); saveStartDateRaw(today); return today;
 }
-function saveStartDate(d) { localStorage.setItem(STORAGE_KEY, d.toISOString().split('T')[0]); }
+// 撤销机制：每次写入前快照旧值
+let lastUndo = null;
+function snapshotUndo(undoFn, label) { lastUndo = {undo: undoFn, label: label}; }
+function clearUndo() { lastUndo = null; }
+function performUndo() {
+  if (!lastUndo) return;
+  lastUndo.undo();
+  const label = lastUndo.label;
+  clearUndo();
+  renderAll();
+  showToast('↩ 已撤销：' + label, false);
+}
+
+function saveStartDate(d) {
+  const old = localStorage.getItem(STORAGE_KEY);
+  snapshotUndo(() => { if (old) localStorage.setItem(STORAGE_KEY, old); else localStorage.removeItem(STORAGE_KEY); }, '修改起始日期');
+  localStorage.setItem(STORAGE_KEY, d.toISOString().split('T')[0]);
+}
 function getDaysDiff() {
   const start = getStartDate();
   const today = new Date(); today.setHours(0,0,0,0);
   return Math.floor((today - start) / 86400000);
 }
 function getTodayMuscle() { return CYCLE[((getDaysDiff() % 5) + 5) % 5]; }
-function skipToday() { const s = getStartDate(); s.setDate(s.getDate()+1); saveStartDate(s); }
+function skipToday() {
+  const old = localStorage.getItem(STORAGE_KEY);
+  snapshotUndo(() => { if (old) localStorage.setItem(STORAGE_KEY, old); }, '跳过今天');
+  const s = getStartDate(); s.setDate(s.getDate()+1); saveStartDateRaw(s);
+}
+function saveStartDateRaw(d) { localStorage.setItem(STORAGE_KEY, d.toISOString().split('T')[0]); } // 内部用，不产生快照
 
 function getCustomPlan(muscle) {
   try {
@@ -300,8 +324,16 @@ function getCustomPlan(muscle) {
   } catch(e) {}
   return null;
 }
-function saveCustomPlan(muscle, ids) { localStorage.setItem(CUSTOM_PLAN_PREFIX + muscle, JSON.stringify(ids)); }
-function resetCustomPlan(muscle) { localStorage.removeItem(CUSTOM_PLAN_PREFIX + muscle); }
+function saveCustomPlan(muscle, ids) {
+  const old = localStorage.getItem(CUSTOM_PLAN_PREFIX + muscle);
+  snapshotUndo(() => { if (old) localStorage.setItem(CUSTOM_PLAN_PREFIX + muscle, old); else localStorage.removeItem(CUSTOM_PLAN_PREFIX + muscle); }, '自定义' + CYCLE_NAMES[muscle] + '计划');
+  localStorage.setItem(CUSTOM_PLAN_PREFIX + muscle, JSON.stringify(ids));
+}
+function resetCustomPlan(muscle) {
+  const old = localStorage.getItem(CUSTOM_PLAN_PREFIX + muscle);
+  snapshotUndo(() => { if (old) localStorage.setItem(CUSTOM_PLAN_PREFIX + muscle, old); }, '恢复默认' + CYCLE_NAMES[muscle] + '计划');
+  localStorage.removeItem(CUSTOM_PLAN_PREFIX + muscle);
+}
 function getEffectivePlan(muscle) {
   return getCustomPlan(muscle) || EXERCISES.filter(e => e.muscle === muscle && e.core).map(e => e.id);
 }
@@ -549,9 +581,16 @@ $('#saveStartDate').addEventListener('click', () => {
   saveStartDate(d); renderAll();
   showToast('✅ 起始日期已更新，计划重新对齐');
 });
-function showToast(msg) {
-  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
-  clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), 2500);
+function showToast(msg, showUndo) {
+  const t = $('#toast');
+  if (showUndo !== false && lastUndo) {
+    t.innerHTML = `<span>${msg}</span><button class="undo-link" onclick="performUndo()">↩ 撤销</button>`;
+  } else {
+    t.textContent = msg;
+  }
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.classList.remove('show'); clearUndo(); }, 4000);
 }
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
