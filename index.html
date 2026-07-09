@@ -669,8 +669,17 @@ function updateSettingsUI() { $('#startDateInput').value = getStartDate().toISOS
 $('#saveStartDate').addEventListener('click', () => {
   const val = $('#startDateInput').value; if (!val) return;
   const d = new Date(val); if (isNaN(d)) return;
-  saveStartDate(d); renderAll();
-  showToast('✅ 起始日期已更新，计划重新对齐');
+  // 保存旧状态（起始日 + 跳过列表），一次性撤销
+  const oldStart = localStorage.getItem(STORAGE_KEY);
+  const oldSkips = getSkipDates();
+  snapshotUndo(() => {
+    if (oldStart) localStorage.setItem(STORAGE_KEY, oldStart);
+    localStorage.setItem(SKIP_KEY, JSON.stringify(oldSkips));
+  }, '修改起始日期');
+  localStorage.setItem(STORAGE_KEY, d.toISOString().split('T')[0]);
+  localStorage.removeItem(SKIP_KEY);
+  renderAll();
+  showToast('✅ 起始日期已更新，跳过记录已清空');
 });
 function showToast(msg) {
   const t = $('#toast'); t.textContent = msg; t.classList.add('show');
