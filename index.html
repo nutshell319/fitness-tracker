@@ -234,7 +234,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
 <div class="modal-overlay" id="skipModal">
   <div class="modal-box">
     <h3>确认跳过今天？</h3>
-    <p>计划将整体顺延一天，明天的训练变成今天的计划。</p>
+    <p>今天的训练将推迟到明天，整个计划整体后移一天。</p>
     <div class="modal-actions">
       <button class="btn-cancel" id="btnCancel">取消</button>
       <button class="btn-confirm" id="btnConfirm">确认顺延</button>
@@ -291,7 +291,7 @@ function getDaysDiff() {
   return Math.floor((today - start) / 86400000);
 }
 function getTodayMuscle() { return CYCLE[((getDaysDiff() % 5) + 5) % 5]; }
-function skipToday() { const s = getStartDate(); s.setDate(s.getDate()-1); saveStartDate(s); }
+function skipToday() { const s = getStartDate(); s.setDate(s.getDate()+1); saveStartDate(s); }
 
 function getCustomPlan(muscle) {
   try {
@@ -483,8 +483,9 @@ $$('.tag-btn').forEach(btn => {
 $('#skipBtn').addEventListener('click', () => $('#skipModal').classList.add('show'));
 $('#btnCancel').addEventListener('click', () => $('#skipModal').classList.remove('show'));
 $('#btnConfirm').addEventListener('click', () => {
+  const skipped = getTodayMuscle();
   skipToday(); $('#skipModal').classList.remove('show'); renderAll();
-  showToast('✅ 已顺延，今天是 ' + CYCLE_NAMES[getTodayMuscle()]);
+  showToast('✅ 已跳过，' + CYCLE_NAMES[skipped] + '推迟到明天');
 });
 $('#skipModal').addEventListener('click', function(e) { if (e.target===this) this.classList.remove('show'); });
 
