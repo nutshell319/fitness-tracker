@@ -1238,7 +1238,7 @@ function openCycleEditor() {
     h += '<div class="cycle-editor-muscles">';
     ALL_MUSCLES.forEach(mm => {
       const on = day.muscles.includes(mm.key);
-      h += '<span class="cycle-editor-muscle' + (on?' on':'') + '" data-muscle="' + mm.key + '" onclick="toggleCycleMuscle(this)">' + mm.label + '</span>';
+      h += '<span class="cycle-editor-muscle' + (on?' on':'') + '" data-muscle="' + mm.key + '" onclick="toggleCycleMuscle(this);applyMusclePreset(this.closest(\'.cycle-editor-day\'))">' + mm.label + '</span>';
     });
     h += '</div>';
     h += '<input type="text" class="ce-motivation" value="' + (day.motivation||'') + '" placeholder="每日一句（可选）" style="margin-top:6px;width:100%;padding:4px 8px;background:var(--bg-card);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px;font-family:var(--font);">';
@@ -1269,7 +1269,7 @@ document.getElementById('btnAddCycleDay').addEventListener('click', () => {
     + '<label>色</label><input type="color" class="ce-color" value="#4ecdc4">'
     + '<button class="cycle-editor-del" title="删除此天" onclick="delCycleDay(' + idx + ')">✕</button>'
     + '</div>'
-    + '<div class="cycle-editor-muscles">' + ALL_MUSCLES.map(mm => '<span class="cycle-editor-muscle" data-muscle="' + mm.key + '" onclick="toggleCycleMuscle(this)">' + mm.label + '</span>').join('') + '</div>'
+    + '<div class="cycle-editor-muscles">' + ALL_MUSCLES.map(mm => '<span class="cycle-editor-muscle" data-muscle="' + mm.key + '" onclick="toggleCycleMuscle(this);applyMusclePreset(this.closest(\'.cycle-editor-day\'))">' + mm.label + '</span>').join('') + '</div>'
     + '<input type="text" class="ce-motivation" placeholder="每日一句（可选）" style="margin-top:6px;width:100%;padding:4px 8px;background:var(--bg-card);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px;font-family:var(--font);">';
   $('#cycleEditorList').appendChild(el);
   // 自动选中第一个肌肉群并应用预设
