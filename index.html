@@ -24,6 +24,54 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
 ::-webkit-scrollbar-thumb { background: #3a3d47; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #4a4d57; }
 * { scrollbar-width: thin; scrollbar-color: #3a3d47 transparent; }
+
+/* ── 全局过渡动画 ── */
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.02); } }
+@keyframes slideDown { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes checkPop { 0% { transform: scale(0); } 60% { transform: scale(1.3); } 100% { transform: scale(1); } }
+
+.header, .cycle-bar, .heatmap-section, .settings-section, .library-section { animation: fadeInUp 0.4s ease-out both; }
+.heatmap-section { animation-delay: 0.05s; }
+.cycle-bar { animation-delay: 0.1s; }
+#todaySection, #cardioSection { animation: fadeInUp 0.4s ease-out 0.15s both; }
+.library-section { animation: fadeInUp 0.4s ease-out 0.2s both; }
+.settings-section { animation: fadeInUp 0.4s ease-out 0.25s both; }
+
+.exercise-card { transition: border-color 0.2s, box-shadow 0.2s, margin 0.2s; }
+.exercise-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.2); }
+.card-arrow { transition: transform 0.3s cubic-bezier(.22,1,.36,1); }
+
+.modal-overlay { transition: opacity 0.25s; }
+.modal-overlay.show .modal-box { animation: slideDown 0.3s cubic-bezier(.22,1,.36,1); }
+
+.toast { transition: opacity 0.3s, transform 0.3s cubic-bezier(.22,1,.36,1); }
+.undo-bar { transition: transform 0.35s cubic-bezier(.22,1,.36,1); }
+
+.exercise-check-item { transition: all 0.2s; }
+.tag-btn { transition: all 0.25s; }
+.skip-btn, .custom-plan-btn { transition: all 0.25s; }
+.cycle-day { transition: all 0.25s; }
+.heatmap-cell { transition: transform 0.15s, outline 0.15s; }
+
+.exercise-done-check { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border); flex-shrink: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+.exercise-done-check.checked { background: var(--abs); border-color: var(--abs); animation: checkPop 0.3s ease-out; }
+.exercise-done-check.checked::after { content: '✓'; color: #fff; font-size: 13px; font-weight: 700; }
+.card-header .exercise-done-check { margin-right: 4px; }
+
+.exercise-card.done { opacity: 0.6; }
+.exercise-card.done .card-name { text-decoration: line-through; text-decoration-color: var(--abs); }
+
+.progress-bar-wrap { background: var(--bg); border-radius: 4px; height: 4px; margin-bottom: 16px; overflow: hidden; }
+.progress-bar-fill { height: 100%; background: var(--abs); border-radius: 4px; transition: width 0.4s cubic-bezier(.22,1,.36,1); width: 0%; }
+
+.search-box { width: 100%; padding: 10px 14px 10px 36px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; color: var(--text); font-size: 14px; font-family: var(--font); margin-bottom: 12px; outline: none; transition: border-color 0.2s; }
+.search-box:focus { border-color: var(--primary); }
+.search-box-wrap { position: relative; }
+.search-box-wrap::before { content: '🔍'; position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 13px; pointer-events: none; z-index: 1; }
+
 .app { max-width: 780px; margin: 0 auto; padding: 20px 16px 60px; }
 
 .header { background: var(--bg-card); border-radius: var(--radius); padding: 28px 24px 20px; text-align: center; margin-bottom: 20px; border: 1px solid var(--border); position: relative; overflow: hidden; }
@@ -121,8 +169,8 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
 .card-arrow { font-size: 14px; color: var(--text-muted); transition: transform 0.3s; flex-shrink: 0; }
 .exercise-card.expanded .card-arrow { transform: rotate(180deg); }
 
-.card-detail { display: none; padding: 0 18px 20px; border-top: 1px solid var(--border); }
-.exercise-card.expanded .card-detail { display: block; }
+.card-detail { max-height: 0; opacity: 0; overflow: hidden; padding: 0 18px; border-top: 1px solid transparent; transition: max-height 0.35s cubic-bezier(.22,1,.36,1), opacity 0.3s, padding 0.3s, border-color 0.3s; }
+.exercise-card.expanded .card-detail { max-height: 2000px; opacity: 1; padding: 12px 18px 20px; border-top-color: var(--border); }
 
 .params-table { width: 100%; border-collapse: collapse; margin: 12px 0 16px; font-size: 13px; }
 .params-table tr { border-bottom: 1px solid rgba(255,255,255,0.05); }
@@ -290,6 +338,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
 
   <section class="library-section">
     <h2 class="section-title">📚 全部动作库（数据来源：MuscleWiki）</h2>
+    <div class="search-box-wrap"><input type="text" class="search-box" id="searchBox" placeholder="搜索动作名称（中文/英文）..."></div>
     <div class="tag-nav" id="tagNav">
       <button class="tag-btn active" data-muscle="back">🔵 背（11）</button>
       <button class="tag-btn" data-muscle="chest">🟠 胸（15）</button>
@@ -320,7 +369,12 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
         </div>
         <div id="skipDateList" style="display:flex;flex-wrap:wrap;gap:4px;font-size:12px;"></div>
       </div>
-      <button id="resetAllBtn" style="margin-top:16px;padding:8px 16px;background:transparent;border:1px solid var(--danger);color:var(--danger);border-radius:20px;cursor:pointer;font-size:13px;font-family:var(--font);">🗑 清空所有数据（重新开始）</button>
+      <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button id="exportDataBtn" style="padding:7px 12px;background:transparent;border:1px solid var(--border);color:var(--text-secondary);border-radius:16px;cursor:pointer;font-size:12px;font-family:var(--font);">📥 导出数据</button>
+        <button id="importDataBtn" style="padding:7px 12px;background:transparent;border:1px solid var(--border);color:var(--text-secondary);border-radius:16px;cursor:pointer;font-size:12px;font-family:var(--font);">📤 导入数据</button>
+        <input type="file" id="importFileInput" accept=".json" style="display:none;">
+      </div>
+      <button id="resetAllBtn" style="margin-top:10px;padding:8px 16px;background:transparent;border:1px solid var(--danger);color:var(--danger);border-radius:20px;cursor:pointer;font-size:13px;font-family:var(--font);">🗑 清空所有数据（重新开始）</button>
     </div>
   </details>
 </div>
@@ -943,11 +997,23 @@ function renderTodayWorkout(dayIndex) {
   const exs = planIds.map(id => EXERCISES.find(e => e.id === id)).filter(Boolean).sort((a,b) => (diffOrder[a.difficulty]||0) - (diffOrder[b.difficulty]||0));
   if (exs.length === 0) {
     $('#todayList').innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:20px;">暂无动作，点击"📝 自定义训练计划"添加</p>';
+    $('#todaySectionTitle').textContent = '📋 今日训练';
     return;
   }
-  $('#todayList').innerHTML = exs.map((ex,i) => makeCard(ex,i)).join('');
-  const cd = dayIndex >= 0 ? getCycle()[dayIndex] : null;
-  $('#todaySectionTitle').textContent = `📋 今日训练（${exs.length} 个动作）`;
+  const doneCount = exs.filter(e => isDone(e.id)).length;
+  let h = '<div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:' + Math.round(doneCount/exs.length*100) + '%"></div></div>';
+  h += exs.map((ex,i) => {
+    const done = isDone(ex.id);
+    let card = makeCard(ex,i);
+    // Inject checkbox after card-header div
+    const checkHtml = `<div class="exercise-done-check${done?' checked':''}" onclick="event.stopPropagation();toggleDone('${ex.id}')"></div>`;
+    card = card.replace('<div class="card-index">', checkHtml + '<div class="card-index">');
+    // Add done class to card
+    if (done) card = card.replace('class="exercise-card"', 'class="exercise-card done"');
+    return card;
+  }).join('');
+  $('#todayList').innerHTML = h;
+  $('#todaySectionTitle').textContent = `📋 今日训练（${doneCount}/${exs.length}）`;
 }
 
 function renderCardioDay() {
@@ -983,10 +1049,13 @@ function toggleCard(headerEl) {
 
 let currentLibTab = 'back';
 function renderLibrary(muscle) {
+  const q = ($('#searchBox').value || '').toLowerCase().trim();
   const diffOrder = {新手:0, 中级:1, 高级:2};
-  const exs = EXERCISES.filter(e => e.muscle === muscle).sort((a,b) => (diffOrder[a.difficulty]||0) - (diffOrder[b.difficulty]||0));
-  $('#libraryList').innerHTML = exs.length ? exs.map((ex,i) => makeCard(ex,i)).join('') : '<p style="color:var(--text-muted);text-align:center;padding:20px;">暂无动作</p>';
+  let exs = EXERCISES.filter(e => e.muscle === muscle).sort((a,b) => (diffOrder[a.difficulty]||0) - (diffOrder[b.difficulty]||0));
+  if (q) exs = exs.filter(e => e.name.includes(q) || e.nameEn.toLowerCase().includes(q));
+  $('#libraryList').innerHTML = exs.length ? exs.map((ex,i) => makeCard(ex,i)).join('') : '<p style="color:var(--text-muted);text-align:center;padding:20px;">' + (q ? '未找到匹配动作' : '暂无动作') + '</p>';
 }
+$('#searchBox').addEventListener('input', () => renderLibrary(currentLibTab));
 $$('.tag-btn').forEach(btn => {
   btn.addEventListener('click', function() {
     $$('.tag-btn').forEach(b => b.classList.remove('active'));
@@ -1203,6 +1272,9 @@ document.getElementById('btnAddCycleDay').addEventListener('click', () => {
     + '<div class="cycle-editor-muscles">' + ALL_MUSCLES.map(mm => '<span class="cycle-editor-muscle" data-muscle="' + mm.key + '" onclick="toggleCycleMuscle(this)">' + mm.label + '</span>').join('') + '</div>'
     + '<input type="text" class="ce-motivation" placeholder="每日一句（可选）" style="margin-top:6px;width:100%;padding:4px 8px;background:var(--bg-card);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px;font-family:var(--font);">';
   $('#cycleEditorList').appendChild(el);
+  // 自动选中第一个肌肉群并应用预设
+  const firstM = el.querySelector('.cycle-editor-muscle');
+  if (firstM) { firstM.classList.add('on'); applyMusclePreset(el); }
 });
 
 document.getElementById('btnConfirmCycle').addEventListener('click', () => {
@@ -1267,6 +1339,91 @@ $('#resetAllBtn').addEventListener('click', () => {
   clearUndo();
   location.reload();
 });
+
+// ── 数据导出/导入 ──
+$('#exportDataBtn').addEventListener('click', () => {
+  const data = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key.startsWith('ft_')) data[key] = localStorage.getItem(key);
+  }
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+  const link = document.createElement('a');
+  link.download = 'fitness-tracker-backup-' + todayStr() + '.json';
+  link.href = URL.createObjectURL(blob);
+  link.click();
+  showToast('📥 数据已导出为 JSON 文件');
+});
+
+$('#importDataBtn').addEventListener('click', () => $('#importFileInput').click());
+$('#importFileInput').addEventListener('change', function() {
+  const file = this.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      const keys = Object.keys(data).filter(k => k.startsWith('ft_'));
+      if (keys.length === 0) { showToast('⚠ 未找到有效数据'); return; }
+      snapshotUndo(() => { keys.forEach(k => localStorage.removeItem(k)); }, '导入数据');
+      keys.forEach(k => localStorage.setItem(k, data[k]));
+      renderAll(); updateSettingsUI();
+      showToast('✅ 已导入 ' + keys.length + ' 条数据');
+    } catch(err) { showToast('⚠ 文件格式错误'); }
+  };
+  reader.readAsText(file);
+  this.value = '';
+});
+
+// ── 今日训练打勾 ──
+const DONE_KEY_PREFIX = 'ft_done_';
+function getDoneSet() { try { const raw = localStorage.getItem(DONE_KEY_PREFIX + todayStr()); return raw ? new Set(JSON.parse(raw)) : new Set(); } catch(e) { return new Set(); } }
+function toggleDone(exId) {
+  const ds = todayStr();
+  const key = DONE_KEY_PREFIX + ds;
+  const done = getDoneSet();
+  if (done.has(exId)) done.delete(exId); else done.add(exId);
+  localStorage.setItem(key, JSON.stringify([...done]));
+  renderTodayWorkout(getTodayCycleDayIndex());
+}
+function isDone(exId) { return getDoneSet().has(exId); }
+
+// ── 肌肉群预设（周期编辑器用）──
+const MUSCLE_PRESETS = {
+  back:    {emoji:'💪', name:'背日', color:'#4ecdc4', motivation:'打造倒三角，从每一次下拉开始'},
+  chest:   {emoji:'🔥', name:'胸日', color:'#ff6b35', motivation:'推起重量，推起自信'},
+  shoulder:{emoji:'🏋️', name:'肩日', color:'#f0c040', motivation:'宽肩撑起气场，饱满三角肌'},
+  abs:     {emoji:'🧱', name:'腹日', color:'#22c55e', motivation:'核心是力量之源，雕刻六块腹肌'},
+  cardio:  {emoji:'🚶', name:'有氧日', color:'#60a5fa', motivation:'燃脂快走，甩掉脂肪保留肌肉'},
+  legs:    {emoji:'🦵', name:'腿日', color:'#a78bfa', motivation:'练腿虽苦，收益最大，下肢力量是根基'},
+  arms:    {emoji:'🎯', name:'手臂日', color:'#f472b6', motivation:'手臂是门面，撑起袖口'},
+};
+
+function applyMusclePreset(dayEl) {
+  const onMuscles = [];
+  dayEl.querySelectorAll('.cycle-editor-muscle.on').forEach(m => onMuscles.push(m.dataset.muscle));
+  if (onMuscles.length === 0) return;
+  const preset = MUSCLE_PRESETS[onMuscles[0]];
+  if (!preset) return;
+  const nameInput = dayEl.querySelector('.ce-name');
+  const emojiSelect = dayEl.querySelector('.ce-emoji');
+  const colorInput = dayEl.querySelector('.ce-color');
+  const motInput = dayEl.querySelector('.ce-motivation');
+  // 只更新未被用户手动修改过的字段（简单策略：直接覆盖）
+  if (nameInput) nameInput.value = preset.name;
+  if (emojiSelect) emojiSelect.value = preset.emoji;
+  if (colorInput) colorInput.value = preset.color;
+  if (motInput && !motInput.value) motInput.placeholder = preset.motivation;
+}
+
+// 增强 toggleCycleMuscle，触发时自动应用预设
+const origToggleCycleMuscle = toggleCycleMuscle;
+toggleCycleMuscle = function(el) {
+  origToggleCycleMuscle(el);
+  applyMusclePreset(el.closest('.cycle-editor-day'));
+};
+
+
 
 function showToast(msg) {
   const t = $('#toast'); t.textContent = msg; t.classList.add('show');
