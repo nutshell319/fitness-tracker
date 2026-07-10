@@ -80,8 +80,8 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
 .heatmap-cell:hover { outline: 1px solid rgba(255,255,255,0.4); z-index: 2; }
 .heatmap-cell[data-tip]:hover::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); white-space: nowrap; background: #333; color: #fff; font-size: 10px; padding: 4px 8px; border-radius: 4px; pointer-events: none; z-index: 10; font-family: var(--font); }
 .heatmap-cell.today-cell { outline: 2px solid #fff; outline-offset: -1px; z-index: 1; }
-.heatmap-cell.empty { background: transparent; outline: none; pointer-events: none; }
-.heatmap-cell.future { background: var(--bg); outline: 1px solid rgba(255,255,255,0.02); pointer-events: none; }
+.heatmap-cell.empty { background: rgba(255,255,255,0.04); pointer-events: none; }
+.heatmap-cell.future { background: rgba(255,255,255,0.04); pointer-events: none; }
 .heatmap-cell.back-cell { background: var(--back); }
 .heatmap-cell.chest-cell { background: var(--chest); }
 .heatmap-cell.shoulder-cell { background: var(--shoulder); }
