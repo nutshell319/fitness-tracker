@@ -69,8 +69,9 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
 .heatmap-stat .stat-label { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
 .heatmap-grid-wrap { overflow-x: auto; padding-bottom: 6px; }
 .heatmap-grid-inner { display: inline-flex; flex-direction: column; min-width: 100%; }
-.heatmap-month-row { display: flex; margin-left: 24px; height: 18px; position: relative; }
-.heatmap-month-row span { font-size: 10px; color: var(--text-muted); position: relative; }
+.heatmap-month-row { display: flex; gap: 2px; margin-left: 24px; height: 18px; }
+.heatmap-month-row .month-slot { width: 12px; flex-shrink: 0; position: relative; }
+.heatmap-month-row .month-label { position: absolute; left: 0; font-size: 10px; color: var(--text-muted); white-space: nowrap; }
 .heatmap-grid-body { display: flex; }
 .heatmap-weekdays { display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; margin-right: 4px; }
 .heatmap-weekdays span { width: 20px; height: 12px; font-size: 9px; color: var(--text-muted); display: flex; align-items: center; justify-content: flex-end; }
@@ -223,6 +224,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
   .params-table td:first-child { width: 70px; font-size: 11px; }
   .tag-btn { font-size: 12px; padding: 8px 10px; }
   .heatmap-cell { width: 10px; height: 10px; border-radius: 1px; }
+  .heatmap-month-row .month-slot { width: 10px; }
   .heatmap-grid { gap: 2px; }
   .heatmap-week-col { gap: 2px; }
   .heatmap-stats { gap: 14px; }
@@ -673,18 +675,21 @@ function renderHeatmap() {
   // 重新排序为 一~日：JS dow 1,2,3,4,5,6,0
   const rowOrder = [1,2,3,4,5,6,0]; // Mon=1, Tue=2, ..., Sun=0
 
-  // 计算月份标签的 left 位置（每个 col = 12px cell + 2px gap = 14px）
-  const colW = 14; // cell 12 + gap 2
+  // 月份标签映射：colIndex → label
+  const monthMap = {};
+  for (const mo of monthOffsets) { monthMap[mo.col] = mo.label; }
 
   h += '<div class="heatmap-grid-wrap"><div class="heatmap-grid-inner">';
 
-  // 顶部月份行
+  // 顶部月份行（flex 对齐，与下方格子列一一对应）
   h += '<div class="heatmap-month-row">';
-  for (const mo of monthOffsets) {
-    h += `<span style="position:absolute;left:${24 + mo.col * colW}px">${mo.label}</span>`;
+  for (let i = 0; i < weeks.length; i++) {
+    if (monthMap[i] !== undefined) {
+      h += `<div class="month-slot"><span class="month-label">${monthMap[i]}</span></div>`;
+    } else {
+      h += '<div class="month-slot"></div>';
+    }
   }
-  // 占位高度
-  h += '<span style="visibility:hidden">1月</span>';
   h += '</div>';
 
   // 主体：星期标签 + 格子
