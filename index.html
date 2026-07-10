@@ -193,6 +193,20 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
 
 .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
 .modal-actions button { padding: 10px 24px; border-radius: 20px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: var(--font); border: none; transition: opacity 0.2s; }
+
+.cycle-editor-list { display: flex; flex-direction: column; gap: 10px; max-height: 50vh; overflow-y: auto; }
+.cycle-editor-day { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; }
+.cycle-editor-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cycle-editor-row label { font-size: 11px; color: var(--text-muted); white-space: nowrap; margin-right: 2px; }
+.cycle-editor-row input[type="text"] { width: 80px; padding: 5px 8px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 13px; font-family: var(--font); }
+.cycle-editor-row input[type="text"]:focus { outline: none; border-color: var(--primary); }
+.cycle-editor-row input[type="color"] { width: 28px; height: 28px; border: 1px solid var(--border); border-radius: 4px; cursor: pointer; background: none; padding: 2px; }
+.cycle-editor-row select { padding: 5px 6px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 13px; font-family: var(--font); }
+.cycle-editor-muscles { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.cycle-editor-muscle { font-size: 11px; padding: 3px 9px; border-radius: 12px; border: 1px solid var(--border); cursor: pointer; transition: all 0.15s; color: var(--text-muted); background: transparent; user-select: none; }
+.cycle-editor-muscle.on { border-color: var(--primary); color: var(--primary); background: var(--primary-dim); }
+.cycle-editor-del { margin-left: auto; width: 26px; height: 26px; border-radius: 50%; border: 1px solid transparent; background: transparent; color: var(--text-muted); cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+.cycle-editor-del:hover { border-color: var(--danger); color: var(--danger); }
 .modal-actions button:hover { opacity: 0.9; }
 .btn-cancel { background: var(--bg); color: var(--text-secondary); border: 1px solid var(--border) !important; }
 .btn-confirm { background: var(--primary); color: #fff; }
@@ -282,7 +296,8 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
         <input type="date" id="startDateInput">
         <button id="saveStartDate">保存</button>
       </div>
-      <p class="settings-hint">起始日为<b>背日</b>，按 背→胸→肩→腹→有氧 5 日循环（练四休一）</p>
+      <p class="settings-hint" id="cycleHint">起始日为<b>背日</b>，按 背→胸→肩→腹→有氧 5 日循环（练四休一）</p>
+      <button id="editCycleBtn" style="margin-top:8px;padding:8px 16px;background:transparent;border:1px solid var(--secondary);color:var(--secondary);border-radius:20px;cursor:pointer;font-size:13px;font-family:var(--font);">🔄 自定义训练周期</button>
       <button id="resetAllBtn" style="margin-top:16px;padding:8px 16px;background:transparent;border:1px solid var(--danger);color:var(--danger);border-radius:20px;cursor:pointer;font-size:13px;font-family:var(--font);">🗑 清空所有数据（重新开始）</button>
     </div>
   </details>
@@ -311,6 +326,23 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
       <button class="btn-reset" id="btnResetPlan">🔄 恢复默认</button>
       <button class="btn-cancel" id="btnCancelPlan">取消</button>
       <button class="btn-confirm" id="btnConfirmPlan">💾 保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 自定义训练周期弹窗 -->
+<div class="modal-overlay" id="cycleEditorModal">
+  <div class="modal-box large">
+    <h3>🔄 自定义训练周期</h3>
+    <div class="modal-subtitle">设置每个训练日的名称、训练部位、图标和颜色</div>
+    <div class="cycle-editor-list" id="cycleEditorList"></div>
+    <div style="margin-top:12px;display:flex;gap:8px;">
+      <button class="btn-cancel" id="btnAddCycleDay" style="font-size:13px;padding:8px 16px;">＋ 增加一天</button>
+    </div>
+    <div class="modal-actions" style="margin-top:16px;">
+      <button class="btn-reset" id="btnResetCycle">🔄 恢复默认</button>
+      <button class="btn-cancel" id="btnCancelCycle">取消</button>
+      <button class="btn-confirm" id="btnConfirmCycle">💾 保存周期</button>
     </div>
   </div>
 </div>
@@ -987,7 +1019,111 @@ $('#btnResetPlan').addEventListener('click', resetCurrentPlan);
 $('#customPlanModal').addEventListener('click', function(e) { if (e.target===this) closeCustomPlan(); });
 
 // 设置
-function updateSettingsUI() { $('#startDateInput').value = formatLocalDate(getStartDate()); }
+function updateSettingsUI() {
+  $('#startDateInput').value = formatLocalDate(getStartDate());
+  const cycle = getCycle();
+  $('#cycleHint').innerHTML = '起始日为<b>' + cycle[0].name + '</b>，按 ' + cycle.map(d=>d.name).join('→') + ' ' + cycle.length + '日循环';
+}
+
+// ── 训练周期编辑器 ──
+const CYCLE_COLORS = ['#4ecdc4','#ff6b35','#f0c040','#22c55e','#60a5fa','#e85d75','#a78bfa','#f472b6'];
+const CYCLE_EMOJIS = ['💪','🔥','🏋️','🧱','🚶','🏃','🦵','🎯','⚡','🔄','💥','🏆'];
+const ALL_MUSCLES = [
+  {key:'back', label:'背'},
+  {key:'chest', label:'胸'},
+  {key:'shoulder', label:'肩'},
+  {key:'abs', label:'腹'},
+  {key:'cardio', label:'有氧'},
+  {key:'legs', label:'腿'},
+  {key:'arms', label:'手臂'},
+];
+
+function openCycleEditor() {
+  const cycle = getCycle();
+  let h = '';
+  cycle.forEach((day, i) => {
+    h += '<div class="cycle-editor-day" data-idx="' + i + '">';
+    h += '<div class="cycle-editor-row">';
+    h += '<label>图标</label><select class="ce-emoji">' + CYCLE_EMOJIS.map(e => '<option' + (day.emoji===e?' selected':'') + '>' + e + '</option>').join('') + '</select>';
+    h += '<label>名称</label><input type="text" class="ce-name" value="' + day.name + '" maxlength="8">';
+    h += '<label>色</label><input type="color" class="ce-color" value="' + day.color + '">';
+    if (cycle.length > 1) h += '<button class="cycle-editor-del" title="删除此天" onclick="delCycleDay(' + i + ')">✕</button>';
+    h += '</div>';
+    h += '<div class="cycle-editor-muscles">';
+    ALL_MUSCLES.forEach(mm => {
+      const on = day.muscles.includes(mm.key);
+      h += '<span class="cycle-editor-muscle' + (on?' on':'') + '" data-muscle="' + mm.key + '" onclick="toggleCycleMuscle(this)">' + mm.label + '</span>';
+    });
+    h += '</div>';
+    h += '<input type="text" class="ce-motivation" value="' + (day.motivation||'') + '" placeholder="每日一句（可选）" style="margin-top:6px;width:100%;padding:4px 8px;background:var(--bg-card);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px;font-family:var(--font);">';
+    h += '</div>';
+  });
+  $('#cycleEditorList').innerHTML = h;
+  $('#cycleEditorModal').classList.add('show');
+}
+
+function toggleCycleMuscle(el) { el.classList.toggle('on'); }
+function delCycleDay(idx) {
+  const dayEls = $$('#cycleEditorList .cycle-editor-day');
+  if (dayEls.length <= 1) { showToast('⚠ 至少保留一天'); return; }
+  const el = $('#cycleEditorList').querySelector('[data-idx="' + idx + '"]');
+  if (el) { el.remove(); updateCycleIdx(); }
+}
+function updateCycleIdx() {
+  $$('#cycleEditorList .cycle-editor-day').forEach((el, i) => { el.dataset.idx = i; });
+}
+document.getElementById('btnAddCycleDay').addEventListener('click', () => {
+  const el = document.createElement('div');
+  el.className = 'cycle-editor-day';
+  const idx = $$('#cycleEditorList .cycle-editor-day').length;
+  el.dataset.idx = idx;
+  el.innerHTML = '<div class="cycle-editor-row">'
+    + '<label>图标</label><select class="ce-emoji">' + CYCLE_EMOJIS.map(e => '<option>' + e + '</option>').join('') + '</select>'
+    + '<label>名称</label><input type="text" class="ce-name" value="新训练日" maxlength="8">'
+    + '<label>色</label><input type="color" class="ce-color" value="#4ecdc4">'
+    + '<button class="cycle-editor-del" title="删除此天" onclick="delCycleDay(' + idx + ')">✕</button>'
+    + '</div>'
+    + '<div class="cycle-editor-muscles">' + ALL_MUSCLES.map(mm => '<span class="cycle-editor-muscle" data-muscle="' + mm.key + '" onclick="toggleCycleMuscle(this)">' + mm.label + '</span>').join('') + '</div>'
+    + '<input type="text" class="ce-motivation" placeholder="每日一句（可选）" style="margin-top:6px;width:100%;padding:4px 8px;background:var(--bg-card);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px;font-family:var(--font);">';
+  $('#cycleEditorList').appendChild(el);
+});
+
+document.getElementById('btnConfirmCycle').addEventListener('click', () => {
+  const days = [];
+  $$('#cycleEditorList .cycle-editor-day').forEach(el => {
+    const name = el.querySelector('.ce-name').value.trim() || '训练日';
+    const emoji = el.querySelector('.ce-emoji').value || '💪';
+    const color = el.querySelector('.ce-color').value || '#4ecdc4';
+    const motivation = el.querySelector('.ce-motivation').value.trim();
+    const muscles = [];
+    el.querySelectorAll('.cycle-editor-muscle.on').forEach(m => muscles.push(m.dataset.muscle));
+    if (muscles.length === 0) muscles.push('back'); // 至少一个肌肉群
+    days.push({name, emoji, color, motivation, muscles, id: muscles[0]});
+  });
+  if (days.length === 0) { showToast('⚠ 至少保留一天'); return; }
+  const oldCycle = localStorage.getItem(CYCLE_STORAGE_KEY);
+  snapshotUndo(() => { if (oldCycle) localStorage.setItem(CYCLE_STORAGE_KEY, oldCycle); else localStorage.removeItem(CYCLE_STORAGE_KEY); }, '修改训练周期');
+  localStorage.setItem(CYCLE_STORAGE_KEY, JSON.stringify(days));
+  $('#cycleEditorModal').classList.remove('show');
+  updateSettingsUI();
+  renderAll();
+  showToast('✅ 训练周期已更新');
+});
+
+document.getElementById('btnCancelCycle').addEventListener('click', () => {
+  $('#cycleEditorModal').classList.remove('show');
+});
+
+document.getElementById('btnResetCycle').addEventListener('click', () => {
+  const oldCycle = localStorage.getItem(CYCLE_STORAGE_KEY);
+  snapshotUndo(() => { if (oldCycle) localStorage.setItem(CYCLE_STORAGE_KEY, oldCycle); else localStorage.removeItem(CYCLE_STORAGE_KEY); }, '恢复默认周期');
+  localStorage.removeItem(CYCLE_STORAGE_KEY);
+  openCycleEditor();
+  showToast('🔄 已恢复默认周期（未保存）');
+});
+
+$('#cycleEditorModal').addEventListener('click', function(e) { if (e.target===this) this.classList.remove('show'); });
+$('#editCycleBtn').addEventListener('click', openCycleEditor);
 $('#saveStartDate').addEventListener('click', () => {
   const val = $('#startDateInput').value; if (!val) return;
   const d = new Date(val); if (isNaN(d)) return;
