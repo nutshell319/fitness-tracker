@@ -59,32 +59,36 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
 .cycle-day.skipped { opacity: 0.35; text-decoration: line-through; }
 .cycle-day.skipped .cyc-label { color: var(--danger); }
 
-.heatmap-section { background: var(--bg-card); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 20px; border: 1px solid var(--border); }
-.heatmap-stats { display: flex; gap: 24px; justify-content: center; margin-bottom: 14px; flex-wrap: wrap; }
+.heatmap-section { background: var(--bg-card); border-radius: var(--radius); padding: 16px 20px 14px; margin-bottom: 20px; border: 1px solid var(--border); }
+.heatmap-stats { display: flex; gap: 24px; justify-content: center; margin-bottom: 10px; flex-wrap: wrap; }
 .heatmap-stat { text-align: center; }
-.heatmap-stat .stat-num { font-size: 24px; font-weight: 700; }
+.heatmap-stat .stat-num { font-size: 22px; font-weight: 700; }
 .heatmap-stat .stat-num.train { color: var(--primary); }
 .heatmap-stat .stat-num.skip { color: var(--danger); }
 .heatmap-stat .stat-num.streak { color: var(--secondary); }
-.heatmap-stat .stat-label { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
-.heatmap-grid-outer { display: flex; gap: 5px; justify-content: center; overflow-x: auto; padding-bottom: 4px; }
-.heatmap-weekdays { display: flex; flex-direction: column; gap: 3px; flex-shrink: 0; padding-top: 2px; }
-.heatmap-weekdays span { width: 16px; height: 14px; font-size: 9px; color: var(--text-muted); display: flex; align-items: center; justify-content: flex-end; padding-right: 3px; }
-.heatmap-grid { display: flex; gap: 3px; }
-.heatmap-week-col { display: flex; flex-direction: column; gap: 3px; }
-.heatmap-cell { width: 14px; height: 14px; border-radius: 3px; background: var(--bg); border: 1px solid transparent; position: relative; cursor: default; transition: transform 0.15s; flex-shrink: 0; }
-.heatmap-cell:hover { transform: scale(1.4); z-index: 2; box-shadow: 0 0 6px rgba(255,255,255,0.15); }
+.heatmap-stat .stat-label { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+.heatmap-grid-wrap { overflow-x: auto; padding-bottom: 6px; }
+.heatmap-grid-inner { display: inline-flex; flex-direction: column; min-width: 100%; }
+.heatmap-month-row { display: flex; margin-left: 24px; height: 18px; position: relative; }
+.heatmap-month-row span { font-size: 10px; color: var(--text-muted); position: relative; }
+.heatmap-grid-body { display: flex; }
+.heatmap-weekdays { display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; margin-right: 4px; }
+.heatmap-weekdays span { width: 20px; height: 12px; font-size: 9px; color: var(--text-muted); display: flex; align-items: center; justify-content: flex-end; }
+.heatmap-grid { display: flex; gap: 2px; }
+.heatmap-week-col { display: flex; flex-direction: column; gap: 2px; }
+.heatmap-cell { width: 12px; height: 12px; border-radius: 2px; background: var(--bg); position: relative; cursor: default; flex-shrink: 0; outline: 1px solid rgba(255,255,255,0.04); outline-offset: -1px; }
+.heatmap-cell:hover { outline: 1px solid rgba(255,255,255,0.4); z-index: 2; }
 .heatmap-cell[data-tip]:hover::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); white-space: nowrap; background: #333; color: #fff; font-size: 10px; padding: 4px 8px; border-radius: 4px; pointer-events: none; z-index: 10; font-family: var(--font); }
-.heatmap-cell.today-cell { border-color: #fff; box-shadow: 0 0 4px rgba(255,255,255,0.3); }
-.heatmap-cell.empty { background: transparent; pointer-events: none; }
-.heatmap-cell.future { background: var(--bg); pointer-events: none; }
+.heatmap-cell.today-cell { outline: 2px solid #fff; outline-offset: -1px; z-index: 1; }
+.heatmap-cell.empty { background: transparent; outline: none; pointer-events: none; }
+.heatmap-cell.future { background: var(--bg); outline: 1px solid rgba(255,255,255,0.02); pointer-events: none; }
 .heatmap-cell.back-cell { background: var(--back); }
 .heatmap-cell.chest-cell { background: var(--chest); }
 .heatmap-cell.shoulder-cell { background: var(--shoulder); }
 .heatmap-cell.abs-cell { background: var(--abs); }
 .heatmap-cell.cardio-cell { background: var(--cardio); }
 .heatmap-cell.skip-cell { background: rgba(232,93,117,0.35); }
-.heatmap-legend { display: flex; gap: 14px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
+.heatmap-legend { display: flex; gap: 12px; justify-content: center; margin-top: 10px; flex-wrap: wrap; }
 .heatmap-legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-secondary); }
 .heatmap-legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
 
@@ -218,9 +222,11 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
   .cycle-day .cyc-emoji { font-size: 16px; }
   .params-table td:first-child { width: 70px; font-size: 11px; }
   .tag-btn { font-size: 12px; padding: 8px 10px; }
-  .heatmap-cell { width: 11px; height: 11px; border-radius: 2px; }
-  .heatmap-stats { gap: 16px; }
-  .heatmap-stat .stat-num { font-size: 20px; }
+  .heatmap-cell { width: 10px; height: 10px; border-radius: 1px; }
+  .heatmap-grid { gap: 2px; }
+  .heatmap-week-col { gap: 2px; }
+  .heatmap-stats { gap: 14px; }
+  .heatmap-stat .stat-num { font-size: 18px; }
   .heatmap-legend { gap: 8px; }
   .heatmap-legend-item { font-size: 10px; }
 }
@@ -610,7 +616,6 @@ function renderHeatmap() {
     else trainDays++;
     d0.setDate(d0.getDate() + 1);
   }
-  // 连续训练天数（从昨天往前数，今天不计入连续）
   let streak = 0;
   const check = new Date(today);
   while (check >= start) {
@@ -621,27 +626,28 @@ function renderHeatmap() {
 
   // ── 统计行 ──
   let h = '<div class="heatmap-stats">';
-  h += `<div class="heatmap-stat"><div class="stat-num train">${trainDays}</div><div class="stat-label">🏋️ 总训练天数</div></div>`;
+  h += `<div class="heatmap-stat"><div class="stat-num train">${trainDays}</div><div class="stat-label">🏋️ 训练天数</div></div>`;
   h += `<div class="heatmap-stat"><div class="stat-num skip">${skipDays}</div><div class="stat-label">⏭ 跳过天数</div></div>`;
   h += `<div class="heatmap-stat"><div class="stat-num streak">${streak}</div><div class="stat-label">🔥 连续训练</div></div>`;
   h += '</div>';
 
-  // ── 格子图 ──
-  // 找到 start 所在周的周一
-  const gridStart = new Date(start);
-  const startDow = gridStart.getDay(); // 0=Sun
-  const mondayOffset = startDow === 0 ? -6 : 1 - startDow;
-  gridStart.setDate(gridStart.getDate() + mondayOffset);
+  // ── 格子图（GitHub 风格：从年初到现在，全量展示） ──
+  // 从 start 年 1 月 1 日所在周的周一开始
+  const yearStart = new Date(start.getFullYear(), 0, 1);
+  const ysDow = yearStart.getDay();
+  const gridStart = new Date(yearStart);
+  gridStart.setDate(gridStart.getDate() + (ysDow === 0 ? -6 : 1 - ysDow));
 
-  // 找到 today 所在周的周日
+  // 到 today 所在周的周日
+  const todayDow = today.getDay();
   const gridEnd = new Date(today);
-  const endDow = gridEnd.getDay();
-  const sundayOffset = endDow === 0 ? 0 : 7 - endDow;
-  gridEnd.setDate(gridEnd.getDate() + sundayOffset);
+  gridEnd.setDate(gridEnd.getDate() + (todayDow === 0 ? 0 : 7 - todayDow));
 
-  // 建立 week 列
+  // 建立周列数组
   const weeks = [];
+  const monthOffsets = []; // {colIndex, label} 用于顶部月份标记
   const cursor = new Date(gridStart);
+  let colIdx = 0;
   while (cursor <= gridEnd) {
     const week = [];
     for (let dow = 0; dow < 7; dow++) {
@@ -649,31 +655,57 @@ function renderHeatmap() {
       d.setDate(d.getDate() + dow);
       week.push(new Date(d));
     }
+    // 检查本周是否包含某月 1 号
+    const midDate = week[3]; // 周四 ≈ 周的代表日
+    if (midDate.getDate() <= 7) {
+      monthOffsets.push({col: colIdx, label: (midDate.getMonth()+1)+'月'});
+    }
     weeks.push(week);
+    colIdx++;
     cursor.setDate(cursor.getDate() + 7);
   }
 
-  const weekDayLabels = ['一','二','三','四','五','六','日'];
+  // 星期标签（只标一三五）
+  const dayLabels = ['', '一','','三','','五',''];
+  // 周一～周日（GitHub 是周日在上，这里改用周一在上）
+  const dowOrder = [0,1,2,3,4,5,6]; // Mon=0...Sun=6, 但 JS getDay() Sun=0
+  // 重新排序为 一~日：JS dow 1,2,3,4,5,6,0
+  const rowOrder = [1,2,3,4,5,6,0]; // Mon=1, Tue=2, ..., Sun=0
 
-  h += '<div class="heatmap-grid-outer">';
-  // 左侧星期标签
+  // 计算月份标签的 left 位置（每个 col = 12px cell + 2px gap = 14px）
+  const colW = 14; // cell 12 + gap 2
+
+  h += '<div class="heatmap-grid-wrap"><div class="heatmap-grid-inner">';
+
+  // 顶部月份行
+  h += '<div class="heatmap-month-row">';
+  for (const mo of monthOffsets) {
+    h += `<span style="position:absolute;left:${24 + mo.col * colW}px">${mo.label}</span>`;
+  }
+  // 占位高度
+  h += '<span style="visibility:hidden">1月</span>';
+  h += '</div>';
+
+  // 主体：星期标签 + 格子
+  h += '<div class="heatmap-grid-body">';
+  // 左侧星期
   h += '<div class="heatmap-weekdays">';
-  for (let i = 0; i < 7; i++) {
-    h += `<span>${weekDayLabels[i]}</span>`;
+  for (const dow of rowOrder) {
+    h += `<span>${dayLabels[dow]}</span>`;
   }
   h += '</div>';
-  // 格子
+
+  // 格子矩阵
   h += '<div class="heatmap-grid">';
   const todayDs = formatLocalDate(today);
   for (const week of weeks) {
     h += '<div class="heatmap-week-col">';
-    for (let dow = 0; dow < 7; dow++) {
+    for (const dow of rowOrder) {
       const d = week[dow];
       const ds = formatLocalDate(d);
       const isBeforeStart = d < start;
       const isAfterToday = d > today;
-      let cls = '';
-      let tip = '';
+      let cls = '', tip = '';
       if (isBeforeStart) {
         cls = 'empty';
       } else if (isAfterToday) {
@@ -685,14 +717,14 @@ function renderHeatmap() {
         const muscle = getMuscleForDate(d);
         const mcls = muscle === 'skipped' ? 'skip-cell' : muscle + '-cell';
         const mlabel = DAY_NAMES[muscle] || muscle;
-        cls = mcls + (ds === todayDs ? ' today-cell' : '') + ' tip-cell';
+        cls = mcls + (ds === todayDs ? ' today-cell' : '');
         tip = `${d.getMonth()+1}/${d.getDate()} ${DAY_EMOJI[muscle]||''} ${mlabel}`;
       }
       h += `<div class="heatmap-cell ${cls}"${tip ? ` data-tip="${tip}"` : ''}></div>`;
     }
     h += '</div>';
   }
-  h += '</div></div>';
+  h += '</div></div></div></div>';
 
   // ── 图例 ──
   h += '<div class="heatmap-legend">';
@@ -701,7 +733,7 @@ function renderHeatmap() {
     {color:'var(--chest)', label:'胸日'},
     {color:'var(--shoulder)', label:'肩日'},
     {color:'var(--abs)', label:'腹日'},
-    {color:'var(--cardio)', label:'有氧日'},
+    {color:'var(--cardio)', label:'有氧'},
     {color:'rgba(232,93,117,0.4)', label:'跳过'},
   ];
   for (const item of legendItems) {
