@@ -638,10 +638,11 @@ function renderHeatmap() {
   const gridStart = new Date(yearStart);
   gridStart.setDate(gridStart.getDate() + (ysDow === 0 ? -6 : 1 - ysDow));
 
-  // 到 today 所在周的周日
-  const todayDow = today.getDay();
-  const gridEnd = new Date(today);
-  gridEnd.setDate(gridEnd.getDate() + (todayDow === 0 ? 0 : 7 - todayDow));
+  // 到本月最后一天所在周的周日（完整显示当前月份）
+  const monthLast = new Date(today.getFullYear(), today.getMonth() + 1, 0); // 本月最后一天
+  const mlDow = monthLast.getDay();
+  const gridEnd = new Date(monthLast);
+  gridEnd.setDate(gridEnd.getDate() + (mlDow === 0 ? 0 : 7 - mlDow));
 
   // 建立周列数组
   const weeks = [];
