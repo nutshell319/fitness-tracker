@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>新手健身追踪器 · 胸肩背腹 · 5日循环</title>
+<title>FitnessTracker</title>
 <style>
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 :root {
@@ -1274,7 +1274,7 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// ── 分享热力图（Canvas 导出为 PNG）──
+// ── 分享热力图（Canvas 导出为高清 PNG）──
 function shareHeatmap() {
   const start = getStartDate();
   const today = new Date(); today.setHours(0,0,0,0);
@@ -1296,32 +1296,85 @@ function shareHeatmap() {
   const weeks = []; const cursor = new Date(gridStart);
   while (cursor <= gridEnd) { const week = []; for (let dow = 0; dow < 7; dow++) { const d = new Date(cursor); d.setDate(d.getDate() + dow); week.push(new Date(d)); } weeks.push(week); cursor.setDate(cursor.getDate() + 7); }
   const rowOrder = [1,2,3,4,5,6,0];
-  const cs = 12, g = 2, lp = 60, tp = 50, bp = 40, rp = 20;
+
+  // 2x 高清
+  const S = 2;
+  const cs = 14*S, g = 3*S, lp = 70*S, tp = 90*S, bp = 50*S, rp = 30*S;
   const cw = lp + weeks.length * (cs + g) + rp;
   const ch = tp + 7 * (cs + g) + bp;
   const canvas = document.createElement('canvas'); canvas.width = cw; canvas.height = ch;
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#121418'; ctx.fillRect(0, 0, cw, ch);
-  ctx.fillStyle = '#e4e2df'; ctx.font = 'bold 14px "Microsoft YaHei","PingFang SC",sans-serif';
-  ctx.fillText('🏋️ 新手健身追踪器 · 训练热力图', 16, 24);
-  ctx.font = '12px "Microsoft YaHei","PingFang SC",sans-serif'; ctx.fillStyle = '#a09d98';
-  ctx.fillText('训练 ' + trainDays + ' 天  |  跳过 ' + skipDays + ' 天  |  连续 ' + streak + ' 天  |  ' + today.getFullYear() + '年' + (today.getMonth()+1) + '月' + today.getDate() + '日', 16, 42);
+
+  // 背景圆角卡片
+  ctx.fillStyle = '#1e2127';
+  const cr = 12*S; // corner radius
+  ctx.beginPath(); ctx.moveTo(cr, 0); ctx.lineTo(cw-cr, 0); ctx.arcTo(cw, 0, cw, cr, cr); ctx.lineTo(cw, ch-cr); ctx.arcTo(cw, ch, cw-cr, ch, cr); ctx.lineTo(cr, ch); ctx.arcTo(0, ch, 0, ch-cr, cr); ctx.lineTo(0, cr); ctx.arcTo(0, 0, cr, 0, cr); ctx.closePath(); ctx.fill();
+
+  // 标题
+  ctx.fillStyle = '#e4e2df'; ctx.font = 'bold ' + (18*S) + 'px "Microsoft YaHei","PingFang SC",sans-serif';
+  ctx.fillText('🏋️ FitnessTracker · 训练热力图', 24*S, 36*S);
+
+  // 统计行
+  ctx.font = (13*S) + 'px "Microsoft YaHei","PingFang SC",sans-serif';
+  ctx.fillStyle = '#ff6b35'; ctx.fillText(String(trainDays), 24*S, 62*S);
+  ctx.fillStyle = '#a09d98'; ctx.fillText(' 天训练', 24*S + ctx.measureText(String(trainDays)).width, 62*S);
+  ctx.fillStyle = '#e85d75'; const sx = 24*S + ctx.measureText(String(trainDays) + ' 天训练  ').width;
+  ctx.fillText(String(skipDays), sx, 62*S);
+  ctx.fillStyle = '#a09d98'; ctx.fillText(' 天跳过', sx + ctx.measureText(String(skipDays)).width, 62*S);
+  ctx.fillStyle = '#4ecdc4'; const kx = sx + ctx.measureText(String(skipDays) + ' 天跳过  ').width;
+  ctx.fillText(String(streak), kx, 62*S);
+  ctx.fillStyle = '#a09d98'; ctx.fillText(' 天连续  |  ' + today.getFullYear() + '.' + (today.getMonth()+1) + '.' + today.getDate(), kx + ctx.measureText(String(streak)).width, 62*S);
+
+  // 格子区域背景（微弱）
+  const gridW = weeks.length * (cs + g) - g;
+  const gridH = 7 * (cs + g) - g;
+  const gx = lp, gy = tp;
+  ctx.fillStyle = 'rgba(0,0,0,0.15)';
+  ctx.beginPath(); ctx.roundRect(gx - 6*S, gy - 20*S, gridW + 12*S, gridH + 30*S, 6*S); ctx.fill();
+
+  // 月份标签
+  ctx.fillStyle = '#6b6864'; ctx.font = (10*S) + 'px "Microsoft YaHei","PingFang SC",sans-serif';
+  for (let ci = 0; ci < weeks.length; ci++) {
+    const midDate = weeks[ci][3];
+    if (midDate.getDate() <= 7) {
+      ctx.fillText((midDate.getMonth()+1)+'月', lp + ci * (cs + g), tp - 8*S);
+    }
+  }
+
   const todayDs = formatLocalDate(today);
   for (let ci = 0; ci < weeks.length; ci++) {
     for (let ri = 0; ri < 7; ri++) {
       const d = weeks[ci][rowOrder[ri]]; const ds = formatLocalDate(d);
       const x = lp + ci * (cs + g); const y = tp + ri * (cs + g);
       if (d < start || d > today) { ctx.fillStyle = 'rgba(255,255,255,0.04)'; }
-      else if (skipSet.has(ds)) { ctx.fillStyle = 'rgba(232,93,117,0.35)'; }
+      else if (skipSet.has(ds)) { ctx.fillStyle = 'rgba(232,93,117,0.4)'; }
       else { const idx = getCycleDayIndexForDate(d); const cd = idx >= 0 ? cycle[idx] : null; ctx.fillStyle = cd ? cd.color : '#333'; }
-      ctx.fillRect(x, y, cs, cs);
-      if (ds === todayDs) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(x, y, cs, cs); }
+      ctx.beginPath(); ctx.roundRect(x, y, cs, cs, 3*S); ctx.fill();
+      if (ds === todayDs) {
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2*S;
+        ctx.beginPath(); ctx.roundRect(x, y, cs, cs, 3*S); ctx.stroke();
+      }
     }
   }
-  ctx.fillStyle = '#6b6864'; ctx.font = '9px "Microsoft YaHei","PingFang SC",sans-serif';
-  for (let ci = 0; ci < weeks.length; ci++) { const midDate = weeks[ci][3]; if (midDate.getDate() <= 7) ctx.fillText((midDate.getMonth()+1)+'月', lp + ci * (cs + g), tp - 6); }
-  const link = document.createElement('a'); link.download = 'fitness-heatmap-' + todayDs + '.png'; link.href = canvas.toDataURL('image/png'); link.click();
-  showToast('📤 热力图已导出为 PNG 图片');
+
+  // 图例
+  const legendY = tp + gridH + 10*S;
+  ctx.fillStyle = '#6b6864'; ctx.font = (10*S) + 'px "Microsoft YaHei","PingFang SC",sans-serif';
+  const legends = [
+    {color:'#4ecdc4', label:'背'}, {color:'#ff6b35', label:'胸'}, {color:'#f0c040', label:'肩'},
+    {color:'#22c55e', label:'腹'}, {color:'#60a5fa', label:'有氧'}, {color:'rgba(232,93,117,0.5)', label:'跳过'}
+  ];
+  let lx = lp;
+  for (const leg of legends) {
+    ctx.fillStyle = leg.color;
+    ctx.beginPath(); ctx.roundRect(lx, legendY, 8*S, 8*S, 2*S); ctx.fill();
+    ctx.fillStyle = '#a09d98';
+    ctx.fillText(leg.label, lx + 10*S, legendY + 7*S);
+    lx += ctx.measureText(leg.label).width + 18*S;
+  }
+
+  const link = document.createElement('a'); link.download = 'FitnessTracker-' + todayDs + '.png'; link.href = canvas.toDataURL('image/png'); link.click();
+  showToast('📤 热力图已导出为高清 PNG');
 }
 
 updateSettingsUI();
