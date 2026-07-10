@@ -59,6 +59,35 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
 .cycle-day.skipped { opacity: 0.35; text-decoration: line-through; }
 .cycle-day.skipped .cyc-label { color: var(--danger); }
 
+.heatmap-section { background: var(--bg-card); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 20px; border: 1px solid var(--border); }
+.heatmap-stats { display: flex; gap: 24px; justify-content: center; margin-bottom: 14px; flex-wrap: wrap; }
+.heatmap-stat { text-align: center; }
+.heatmap-stat .stat-num { font-size: 24px; font-weight: 700; }
+.heatmap-stat .stat-num.train { color: var(--primary); }
+.heatmap-stat .stat-num.skip { color: var(--danger); }
+.heatmap-stat .stat-num.streak { color: var(--secondary); }
+.heatmap-stat .stat-label { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.heatmap-grid-outer { display: flex; gap: 5px; justify-content: center; overflow-x: auto; padding-bottom: 4px; }
+.heatmap-weekdays { display: flex; flex-direction: column; gap: 3px; flex-shrink: 0; padding-top: 2px; }
+.heatmap-weekdays span { width: 16px; height: 14px; font-size: 9px; color: var(--text-muted); display: flex; align-items: center; justify-content: flex-end; padding-right: 3px; }
+.heatmap-grid { display: flex; gap: 3px; }
+.heatmap-week-col { display: flex; flex-direction: column; gap: 3px; }
+.heatmap-cell { width: 14px; height: 14px; border-radius: 3px; background: var(--bg); border: 1px solid transparent; position: relative; cursor: default; transition: transform 0.15s; flex-shrink: 0; }
+.heatmap-cell:hover { transform: scale(1.4); z-index: 2; box-shadow: 0 0 6px rgba(255,255,255,0.15); }
+.heatmap-cell[data-tip]:hover::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); white-space: nowrap; background: #333; color: #fff; font-size: 10px; padding: 4px 8px; border-radius: 4px; pointer-events: none; z-index: 10; font-family: var(--font); }
+.heatmap-cell.today-cell { border-color: #fff; box-shadow: 0 0 4px rgba(255,255,255,0.3); }
+.heatmap-cell.empty { background: transparent; pointer-events: none; }
+.heatmap-cell.future { background: var(--bg); pointer-events: none; }
+.heatmap-cell.back-cell { background: var(--back); }
+.heatmap-cell.chest-cell { background: var(--chest); }
+.heatmap-cell.shoulder-cell { background: var(--shoulder); }
+.heatmap-cell.abs-cell { background: var(--abs); }
+.heatmap-cell.cardio-cell { background: var(--cardio); }
+.heatmap-cell.skip-cell { background: rgba(232,93,117,0.35); }
+.heatmap-legend { display: flex; gap: 14px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
+.heatmap-legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-secondary); }
+.heatmap-legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
 .section-title { font-size: 18px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
 .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
@@ -189,6 +218,11 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
   .cycle-day .cyc-emoji { font-size: 16px; }
   .params-table td:first-child { width: 70px; font-size: 11px; }
   .tag-btn { font-size: 12px; padding: 8px 10px; }
+  .heatmap-cell { width: 11px; height: 11px; border-radius: 2px; }
+  .heatmap-stats { gap: 16px; }
+  .heatmap-stat .stat-num { font-size: 20px; }
+  .heatmap-legend { gap: 8px; }
+  .heatmap-legend-item { font-size: 10px; }
 }
 </style>
 </head>
@@ -206,6 +240,8 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
       <button class="custom-plan-btn" id="customPlanBtn" title="自定义今天练哪些动作">📝 自定义训练计划</button>
     </div>
   </header>
+
+  <div class="heatmap-section" id="heatmapSection"></div>
 
   <div class="cycle-bar" id="cycleBar"></div>
 
@@ -493,6 +529,7 @@ const $$ = s => document.querySelectorAll(s);
 function renderAll() {
   const m = getTodayMuscle();
   renderHeader(m);
+  renderHeatmap();
   renderCycleBar();
   if (m === 'skipped') { renderSkippedDay(); }
   else if (m === 'cardio') { renderCardioDay(); }
@@ -555,6 +592,124 @@ function renderCycleBar() {
   }
   h += '</div>';
   $('#cycleBar').innerHTML = h;
+}
+
+function renderHeatmap() {
+  const start = getStartDate();
+  const today = new Date(); today.setHours(0,0,0,0);
+  const skipSet = new Set(getSkipDates());
+  const DAY_EMOJI = {back:'💪',chest:'🔥',shoulder:'🏋️',abs:'🧱',cardio:'🚶'};
+  const DAY_NAMES = CYCLE_NAMES;
+
+  // ── 统计 ──
+  let trainDays = 0, skipDays = 0;
+  const d0 = new Date(start);
+  while (d0 <= today) {
+    const ds = formatLocalDate(d0);
+    if (skipSet.has(ds)) skipDays++;
+    else trainDays++;
+    d0.setDate(d0.getDate() + 1);
+  }
+  // 连续训练天数（从昨天往前数，今天不计入连续）
+  let streak = 0;
+  const check = new Date(today);
+  while (check >= start) {
+    if (skipSet.has(formatLocalDate(check))) break;
+    streak++;
+    check.setDate(check.getDate() - 1);
+  }
+
+  // ── 统计行 ──
+  let h = '<div class="heatmap-stats">';
+  h += `<div class="heatmap-stat"><div class="stat-num train">${trainDays}</div><div class="stat-label">🏋️ 总训练天数</div></div>`;
+  h += `<div class="heatmap-stat"><div class="stat-num skip">${skipDays}</div><div class="stat-label">⏭ 跳过天数</div></div>`;
+  h += `<div class="heatmap-stat"><div class="stat-num streak">${streak}</div><div class="stat-label">🔥 连续训练</div></div>`;
+  h += '</div>';
+
+  // ── 格子图 ──
+  // 找到 start 所在周的周一
+  const gridStart = new Date(start);
+  const startDow = gridStart.getDay(); // 0=Sun
+  const mondayOffset = startDow === 0 ? -6 : 1 - startDow;
+  gridStart.setDate(gridStart.getDate() + mondayOffset);
+
+  // 找到 today 所在周的周日
+  const gridEnd = new Date(today);
+  const endDow = gridEnd.getDay();
+  const sundayOffset = endDow === 0 ? 0 : 7 - endDow;
+  gridEnd.setDate(gridEnd.getDate() + sundayOffset);
+
+  // 建立 week 列
+  const weeks = [];
+  const cursor = new Date(gridStart);
+  while (cursor <= gridEnd) {
+    const week = [];
+    for (let dow = 0; dow < 7; dow++) {
+      const d = new Date(cursor);
+      d.setDate(d.getDate() + dow);
+      week.push(new Date(d));
+    }
+    weeks.push(week);
+    cursor.setDate(cursor.getDate() + 7);
+  }
+
+  const weekDayLabels = ['一','二','三','四','五','六','日'];
+
+  h += '<div class="heatmap-grid-outer">';
+  // 左侧星期标签
+  h += '<div class="heatmap-weekdays">';
+  for (let i = 0; i < 7; i++) {
+    h += `<span>${weekDayLabels[i]}</span>`;
+  }
+  h += '</div>';
+  // 格子
+  h += '<div class="heatmap-grid">';
+  const todayDs = formatLocalDate(today);
+  for (const week of weeks) {
+    h += '<div class="heatmap-week-col">';
+    for (let dow = 0; dow < 7; dow++) {
+      const d = week[dow];
+      const ds = formatLocalDate(d);
+      const isBeforeStart = d < start;
+      const isAfterToday = d > today;
+      let cls = '';
+      let tip = '';
+      if (isBeforeStart) {
+        cls = 'empty';
+      } else if (isAfterToday) {
+        cls = 'future';
+      } else if (skipSet.has(ds)) {
+        cls = 'skip-cell';
+        tip = `${d.getMonth()+1}/${d.getDate()} ⏭ 跳过`;
+      } else {
+        const muscle = getMuscleForDate(d);
+        const mcls = muscle === 'skipped' ? 'skip-cell' : muscle + '-cell';
+        const mlabel = DAY_NAMES[muscle] || muscle;
+        cls = mcls + (ds === todayDs ? ' today-cell' : '') + ' tip-cell';
+        tip = `${d.getMonth()+1}/${d.getDate()} ${DAY_EMOJI[muscle]||''} ${mlabel}`;
+      }
+      h += `<div class="heatmap-cell ${cls}"${tip ? ` data-tip="${tip}"` : ''}></div>`;
+    }
+    h += '</div>';
+  }
+  h += '</div></div>';
+
+  // ── 图例 ──
+  h += '<div class="heatmap-legend">';
+  const legendItems = [
+    {color:'var(--back)', label:'背日'},
+    {color:'var(--chest)', label:'胸日'},
+    {color:'var(--shoulder)', label:'肩日'},
+    {color:'var(--abs)', label:'腹日'},
+    {color:'var(--cardio)', label:'有氧日'},
+    {color:'rgba(232,93,117,0.4)', label:'跳过'},
+  ];
+  for (const item of legendItems) {
+    h += `<div class="heatmap-legend-item"><span class="heatmap-legend-dot" style="background:${item.color}"></span>${item.label}</div>`;
+  }
+  h += '</div>';
+
+  $('#heatmapSection').innerHTML = h;
 }
 
 function renderTodayWorkout(muscle) {
