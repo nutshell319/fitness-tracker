@@ -324,18 +324,9 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
 </div>
 
 <script>
-// ============================================================================
-// 核心常量 — 5日循环：背→胸→肩→腹→有氧
-// ============================================================================
-const CYCLE = ['back','chest','shoulder','abs','cardio'];
-const CYCLE_NAMES = {back:'背日',chest:'胸日',shoulder:'肩日',abs:'腹日',cardio:'有氧日'};
-const MOTIVATIONS = {
-  back:'打造倒三角，从每一次下拉开始',
-  chest:'推起重量，推起自信',
-  shoulder:'宽肩撑起气场，饱满三角肌',
-  abs:'核心是力量之源，雕刻六块腹肌',
-  cardio:'燃脂快走，甩掉脂肪保留肌肉 🚶'
-};
+// 旧常量已迁移到 DEFAULT_CYCLE + getCycle() / getTodayCycleDay()，此处仅作兼容引用
+function getCycleDayName(muscle) { const cd = getCycle().find(d => d.muscles.includes(muscle)); return cd ? cd.name : muscle; }
+function getCycleDayNames() { const m={}; getCycle().forEach(d=>{d.muscles.forEach(mm=>{m[mm]=d.name;});}); return m; }
 
 // ============================================================================
 // LocalStorage
@@ -374,28 +365,6 @@ function getDaysDiff() {
     d.setDate(d.getDate() + 1);
   }
   return count - 1; // 起始日当天 = 第 0 天
-}
-
-// 今天的训练部位（跳过日返回 'skipped'）
-function getTodayMuscle() {
-  if (isTodaySkipped()) return 'skipped';
-  return CYCLE[((getDaysDiff() % 5) + 5) % 5];
-}
-
-// 计算某一天对应的训练部位（用于周期条）
-function getMuscleForDate(date) {
-  const ds = formatLocalDate(date);
-  if (isDateSkipped(ds)) return 'skipped';
-  const start = getStartDate();
-  const skipSet = new Set(getSkipDates());
-  let count = 0;
-  const d = new Date(start);
-  while (d <= date) {
-    if (!skipSet.has(formatLocalDate(d))) count++;
-    d.setDate(d.getDate() + 1);
-  }
-  const idx = count - 1;
-  return CYCLE[((idx % 5) + 5) % 5];
 }
 
 // 撤销机制
@@ -444,12 +413,12 @@ function getCustomPlan(muscle) {
 }
 function saveCustomPlan(muscle, ids) {
   const old = localStorage.getItem(CUSTOM_PLAN_PREFIX + muscle);
-  snapshotUndo(() => { if (old) localStorage.setItem(CUSTOM_PLAN_PREFIX + muscle, old); else localStorage.removeItem(CUSTOM_PLAN_PREFIX + muscle); }, '自定义' + CYCLE_NAMES[muscle] + '计划');
+  snapshotUndo(() => { if (old) localStorage.setItem(CUSTOM_PLAN_PREFIX + muscle, old); else localStorage.removeItem(CUSTOM_PLAN_PREFIX + muscle); }, '自定义' + getCycleDayName(muscle) + '计划');
   localStorage.setItem(CUSTOM_PLAN_PREFIX + muscle, JSON.stringify(ids));
 }
 function resetCustomPlan(muscle) {
   const old = localStorage.getItem(CUSTOM_PLAN_PREFIX + muscle);
-  snapshotUndo(() => { if (old) localStorage.setItem(CUSTOM_PLAN_PREFIX + muscle, old); }, '恢复默认' + CYCLE_NAMES[muscle] + '计划');
+  snapshotUndo(() => { if (old) localStorage.setItem(CUSTOM_PLAN_PREFIX + muscle, old); }, '恢复默认' + getCycleDayName(muscle) + '计划');
   localStorage.removeItem(CUSTOM_PLAN_PREFIX + muscle);
 }
 function getEffectivePlan(muscle) {
@@ -551,19 +520,122 @@ const EXERCISES = [
 ];
 
 // ============================================================================
+// 可自定义训练周期 - 数据模型
+// ============================================================================
+const DEFAULT_CYCLE = [
+  {id:'back', name:'背日', muscles:['back'], emoji:'💪', color:'#4ecdc4', motivation:'打造倒三角，从每一次下拉开始'},
+  {id:'chest', name:'胸日', muscles:['chest'], emoji:'🔥', color:'#ff6b35', motivation:'推起重量，推起自信'},
+  {id:'shoulder', name:'肩日', muscles:['shoulder'], emoji:'🏋️', color:'#f0c040', motivation:'宽肩撑起气场，饱满三角肌'},
+  {id:'abs', name:'腹日', muscles:['abs'], emoji:'🧱', color:'#22c55e', motivation:'核心是力量之源，雕刻六块腹肌'},
+  {id:'cardio', name:'有氧日', muscles:['cardio'], emoji:'🚶', color:'#60a5fa', motivation:'燃脂快走，甩掉脂肪保留肌肉 🚶'},
+];
+const CYCLE_STORAGE_KEY = 'ft_cycle_config';
+
+function getCycle() {
+  try {
+    const raw = localStorage.getItem(CYCLE_STORAGE_KEY);
+    if (raw) { const arr = JSON.parse(raw); if (Array.isArray(arr) && arr.length > 0) return arr; }
+  } catch(e) {}
+  return DEFAULT_CYCLE;
+}
+function getCycleLength() { return getCycle().length; }
+
+// 计算某一天对应的周期日索引（0-based），跳过日返回 -1
+function getCycleDayIndexForDate(date) {
+  const ds = formatLocalDate(date);
+  if (isDateSkipped(ds)) return -1;
+  const start = getStartDate();
+  const skipSet = new Set(getSkipDates());
+  let count = 0;
+  const d = new Date(start);
+  while (d <= date) {
+    if (!skipSet.has(formatLocalDate(d))) count++;
+    d.setDate(d.getDate() + 1);
+  }
+  const idx = count - 1;
+  return ((idx % getCycleLength()) + getCycleLength()) % getCycleLength();
+}
+
+function getTodayCycleDayIndex() { return getCycleDayIndexForDate(new Date()); }
+
+// 获取今天的周期日对象（跳过返回 null）
+function getTodayCycleDay() {
+  const idx = getTodayCycleDayIndex();
+  if (idx < 0) return null;
+  return getCycle()[idx];
+}
+
+// 兼容旧代码：返回今天的主肌肉群（多肌肉天返回第一个）
+function getTodayMuscle() {
+  if (isTodaySkipped()) return 'skipped';
+  const cd = getTodayCycleDay();
+  return cd ? (cd.muscles[0] || 'back') : 'skipped';
+}
+
+// 兼容旧代码：返回某天的训练部位字符串（用于热力图）
+function getMuscleForDate(date) {
+  const idx = getCycleDayIndexForDate(date);
+  if (idx < 0) return 'skipped';
+  const cd = getCycle()[idx];
+  return cd.muscles[0] || 'back';
+}
+
+// 获取某天的周期日对象
+function getCycleDayForDate(date) {
+  const idx = getCycleDayIndexForDate(date);
+  if (idx < 0) return null;
+  return getCycle()[idx];
+}
+
+// 获取某周期的有效训练计划：合并所有肌肉群的核心动作
+function getEffectivePlan(dayIndex) {
+  if (dayIndex < 0) return [];
+  const cd = getCycle()[dayIndex];
+  if (!cd) return [];
+  // 先查该天是否有自定义计划（按天索引存）
+  const customDay = getCustomPlan('day_' + dayIndex);
+  if (customDay) return customDay;
+  // 再查旧格式（按第一个肌肉群存，兼容旧数据）
+  const legacyPlan = getCustomPlan(cd.muscles[0]);
+  if (legacyPlan) return legacyPlan;
+  // 默认：合并所有肌肉群中 core:true 的动作
+  const ids = [];
+  for (const m of cd.muscles) {
+    EXERCISES.filter(e => e.muscle === m && e.core).forEach(e => { if (!ids.includes(e.id)) ids.push(e.id); });
+  }
+  return ids.length > 0 ? ids : EXERCISES.filter(e => cd.muscles.includes(e.muscle)).slice(0, 5).map(e => e.id);
+}
+
+// 兼容旧 MOTIVATIONS 查询
+function getMotivation(muscle) {
+  const cd = getTodayCycleDay();
+  return cd ? cd.motivation || '坚持就是胜利！' : '今天休息，训练计划已整体后移';
+}
+
+// ============================================================================
 // UI 渲染
 // ============================================================================
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 
 function renderAll() {
-  const m = getTodayMuscle();
-  renderHeader(m);
-  renderHeatmap();
-  renderCycleBar();
-  if (m === 'skipped') { renderSkippedDay(); }
-  else if (m === 'cardio') { renderCardioDay(); }
-  else { renderTodayWorkout(m); }
+  const cd = getTodayCycleDay();
+  if (!cd && isTodaySkipped()) {
+    renderHeader('skipped');
+    renderHeatmap();
+    renderCycleBar();
+    renderSkippedDay();
+  } else if (cd && cd.muscles[0] === 'cardio') {
+    renderHeader('cardio');
+    renderHeatmap();
+    renderCycleBar();
+    renderCardioDay();
+  } else {
+    renderHeader(cd ? cd.muscles[0] : 'back');
+    renderHeatmap();
+    renderCycleBar();
+    renderTodayWorkout(getTodayCycleDayIndex());
+  }
   renderLibrary(currentLibTab);
 }
 
@@ -571,14 +643,16 @@ function renderSkippedDay() {
   $('#todaySection').style.display = 'block';
   $('#cardioSection').style.display = 'none';
   $('#todaySectionTitle').textContent = '⏭ 今日已跳过';
-  const nextMuscle = getMuscleForDate(new Date(new Date().setDate(new Date().getDate() + 1)));
+  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+  const nextCd = getCycleDayForDate(tomorrow);
+  const nextName = nextCd ? nextCd.name : '未定';
   $('#todayList').innerHTML = `
     <div class="cardio-day-content" style="text-align:center;padding:40px 24px;">
       <span style="font-size:60px;display:block;margin-bottom:12px;">⏭</span>
       <h3 style="margin-bottom:8px;color:var(--text-secondary);">今天已跳过</h3>
       <p style="color:var(--text-muted);font-size:14px;line-height:1.7;">
         训练计划已整体后移一天<br>
-        明天恢复：<strong style="color:var(--primary);">${CYCLE_NAMES[nextMuscle] || nextMuscle}</strong>
+        明天恢复：<strong style="color:var(--primary);">${nextName}</strong>
       </p>
       <p style="color:var(--text-muted);font-size:12px;margin-top:10px;">
         如需还原，点底部"↩ 撤销"按钮
@@ -588,37 +662,43 @@ function renderSkippedDay() {
 
 function renderHeader(muscle) {
   const h = $('#header');
-  h.className = 'header ' + (muscle === 'skipped' ? 'cardio' : muscle);
-  const em = {back:'💪',chest:'🔥',shoulder:'🏋️',abs:'🧱',cardio:'🚶',skipped:'⏭'};
-  const names = {...CYCLE_NAMES, skipped:'已跳过'};
-  const mots = {...MOTIVATIONS, skipped:'今天休息，训练计划已整体后移'};
-  $('#dayEmoji').textContent = em[muscle] || '⏭';
-  $('#dayLabel').textContent = names[muscle] || '已跳过';
-  $('#dayTitle').textContent = names[muscle] || '已跳过';
-  $('#motivation').textContent = mots[muscle] || '今天休息，训练计划已整体后移';
+  const cd = getTodayCycleDay();
+  const cssMuscle = cd ? cd.muscles[0] : 'cardio';
+  h.className = 'header ' + (muscle === 'skipped' ? 'cardio' : cssMuscle);
+  const names = {...getCycleDayNames(), skipped:'已跳过'};
+  const skippedMots = {skipped:'今天休息，训练计划已整体后移'};
+  $('#dayEmoji').textContent = cd ? cd.emoji : '⏭';
+  $('#dayLabel').textContent = cd ? cd.name : (muscle === 'skipped' ? '已跳过' : getCycleDayName(muscle));
+  $('#dayTitle').textContent = cd ? cd.name : (muscle === 'skipped' ? '已跳过' : getCycleDayName(muscle));
+  $('#motivation').textContent = (cd && cd.motivation) ? cd.motivation : '今天休息，训练计划已整体后移';
   const now = new Date();
   const wd = ['日','一','二','三','四','五','六'];
   $('#todayDate').textContent = `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 星期${wd[now.getDay()]}`;
-  if (muscle === 'cardio' || muscle === 'skipped') {
+  const isSkipped = muscle === 'skipped';
+  if (isSkipped) {
     $('#customPlanBtn').style.display = 'none';
-    $('#skipBtn').style.display = muscle === 'skipped' ? 'none' : '';
-    $('#skipBtn').textContent = '⏭ 今天休息，顺延一天';
+    $('#skipBtn').style.display = 'none';
   } else {
     $('#customPlanBtn').style.display = '';
     $('#skipBtn').style.display = '';
-    $('#skipBtn').textContent = '⏭ 今天练不了，顺延一天';
+    $('#skipBtn').textContent = cd && cd.muscles[0] === 'cardio' ? '⏭ 今天休息，顺延一天' : '⏭ 今天练不了，顺延一天';
   }
 }
 
 function renderCycleBar() {
   const today = new Date(); today.setHours(0,0,0,0);
-  const em = {back:'💪',chest:'🔥',shoulder:'🏋️',abs:'🧱',cardio:'🚶',skipped:'⏭'};
-  const names = {...CYCLE_NAMES, skipped:'跳过'};
-  let h = '<h3>📅 训练周期（5日循环：背→胸→肩→腹→有氧）</h3><div class="cycle-days">';
+  const cycle = getCycle();
+  const cycleLen = cycle.length;
+  // 生成周期描述文字
+  const cycleDesc = cycle.map(d => d.name).join('→');
+  let h = `<h3>📅 训练周期（${cycleLen}日循环：${cycleDesc}）</h3><div class="cycle-days">`;
   for (let o = -2; o <= 2; o++) {
     const d = new Date(today); d.setDate(d.getDate()+o);
-    const m = getMuscleForDate(d);
-    h += `<div class="cycle-day ${m==='skipped'?'skipped':m}${o===0?' today':''}"><span class="cyc-date">${d.getMonth()+1}/${d.getDate()}</span><span class="cyc-emoji">${em[m]}</span><span class="cyc-label">${names[m]}</span></div>`;
+    const cd = getCycleDayForDate(d);
+    const cssCls = cd ? cd.muscles[0] : 'skipped';
+    const emoji = cd ? cd.emoji : '⏭';
+    const label = cd ? cd.name : '跳过';
+    h += `<div class="cycle-day ${cd?'':'skipped'}${o===0?' today':''}"><span class="cyc-date">${d.getMonth()+1}/${d.getDate()}</span><span class="cyc-emoji">${emoji}</span><span class="cyc-label" style="color:${cd?cd.color:''}">${label}</span></div>`;
   }
   h += '</div>';
   $('#cycleBar').innerHTML = h;
@@ -628,8 +708,8 @@ function renderHeatmap() {
   const start = getStartDate();
   const today = new Date(); today.setHours(0,0,0,0);
   const skipSet = new Set(getSkipDates());
-  const DAY_EMOJI = {back:'💪',chest:'🔥',shoulder:'🏋️',abs:'🧱',cardio:'🚶'};
-  const DAY_NAMES = CYCLE_NAMES;
+  const DAY_NAMES = getCycleDayNames();
+  function getDayEmoji(muscle) { const cd = getCycle().find(d => d.muscles.includes(muscle)); return cd ? cd.emoji : ''; }
 
   // ── 统计 ──
   let trainDays = 0, skipDays = 0;
@@ -746,7 +826,7 @@ function renderHeatmap() {
         const mcls = muscle === 'skipped' ? 'skip-cell' : muscle + '-cell';
         const mlabel = DAY_NAMES[muscle] || muscle;
         cls = mcls + (ds === todayDs ? ' today-cell' : '');
-        tip = `${d.getMonth()+1}/${d.getDate()} ${DAY_EMOJI[muscle]||''} ${mlabel}`;
+        tip = `${d.getMonth()+1}/${d.getDate()} ${getDayEmoji(muscle)} ${mlabel}`;
       }
       h += `<div class="heatmap-cell ${cls}"${tip ? ` data-tip="${tip}"` : ''}></div>`;
     }
@@ -772,16 +852,17 @@ function renderHeatmap() {
   $('#heatmapSection').innerHTML = h;
 }
 
-function renderTodayWorkout(muscle) {
+function renderTodayWorkout(dayIndex) {
   $('#cardioSection').style.display = 'none';
   $('#todaySection').style.display = 'block';
-  const planIds = getEffectivePlan(muscle);
+  const planIds = getEffectivePlan(dayIndex);
   const exs = planIds.map(id => EXERCISES.find(e => e.id === id)).filter(Boolean);
   if (exs.length === 0) {
     $('#todayList').innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:20px;">暂无动作，点击"📝 自定义训练计划"添加</p>';
     return;
   }
   $('#todayList').innerHTML = exs.map((ex,i) => makeCard(ex,i)).join('');
+  const cd = dayIndex >= 0 ? getCycle()[dayIndex] : null;
   $('#todaySectionTitle').textContent = `📋 今日训练（${exs.length} 个动作）`;
 }
 
@@ -839,14 +920,21 @@ $('#btnConfirm').addEventListener('click', () => {
 });
 $('#skipModal').addEventListener('click', function(e) { if (e.target===this) this.classList.remove('show'); });
 
-// 自定义计划
-let customPlanTarget = null;
-function openCustomPlan(muscle) {
-  customPlanTarget = muscle;
-  const currentPlan = getEffectivePlan(muscle);
-  const allExs = EXERCISES.filter(e => e.muscle === muscle);
+// 自定义计划（基于周期日索引）
+let customPlanTarget = null; // 存的是 dayIndex（0-based）
+function openCustomPlan(dayIndex) {
+  customPlanTarget = dayIndex;
+  const cd = getCycle()[dayIndex];
+  if (!cd) return;
+  const currentPlan = getEffectivePlan(dayIndex);
+  // 汇集该天所有肌肉群的动作（去重）
+  const seen = new Set();
+  const allExs = [];
+  for (const m of cd.muscles) {
+    EXERCISES.filter(e => e.muscle === m).forEach(e => { if (!seen.has(e.id)) { seen.add(e.id); allExs.push(e); } });
+  }
   const selectedSet = new Set(currentPlan);
-  $('#customPlanTitle').textContent = `📝 自定义 ${CYCLE_NAMES[muscle]} 训练计划`;
+  $('#customPlanTitle').textContent = `📝 自定义 ${cd.name} 训练计划`;
   $('#customPlanSubtitle').textContent = `勾选想要训练的动作，顺序 = 勾选顺序。共 ${allExs.length} 个可选动作`;
   $('#customPlanError').style.display = 'none';
   const orderedExs = [];
@@ -869,15 +957,22 @@ function closeCustomPlan() { $('#customPlanModal').classList.remove('show'); cus
 function confirmCustomPlan() {
   const selectedEls = $$('#customPlanList .exercise-check-item.selected');
   if (selectedEls.length === 0) { $('#customPlanError').style.display = 'block'; return; }
-  saveCustomPlan(customPlanTarget, Array.from(selectedEls).map(el => el.dataset.id));
+  saveCustomPlan('day_' + customPlanTarget, Array.from(selectedEls).map(el => el.dataset.id));
   closeCustomPlan();
-  showToast('✅ ' + CYCLE_NAMES[customPlanTarget] + '计划已保存');
+  const cd = getCycle()[customPlanTarget];
+  showToast('✅ ' + (cd ? cd.name : '') + '计划已保存');
   renderAll();
 }
 function resetCurrentPlan() {
-  if (!customPlanTarget) return;
-  resetCustomPlan(customPlanTarget);
-  const allExs = EXERCISES.filter(e => e.muscle === customPlanTarget);
+  if (customPlanTarget == null) return;
+  resetCustomPlan('day_' + customPlanTarget);
+  const cd = getCycle()[customPlanTarget];
+  if (!cd) return;
+  const seen = new Set();
+  const allExs = [];
+  for (const m of cd.muscles) {
+    EXERCISES.filter(e => e.muscle === m).forEach(e => { if (!seen.has(e.id)) { seen.add(e.id); allExs.push(e); } });
+  }
   const defaultSet = new Set(allExs.filter(e => e.core).map(e => e.id));
   $$('#customPlanList .exercise-check-item').forEach(item => {
     if (defaultSet.has(item.dataset.id)) item.classList.add('selected'); else item.classList.remove('selected');
@@ -885,7 +980,7 @@ function resetCurrentPlan() {
   updatePlanOrderDisplay();
   showToast('🔄 已恢复默认计划');
 }
-$('#customPlanBtn').addEventListener('click', () => { const m = getTodayMuscle(); if (m !== 'cardio') openCustomPlan(m); });
+$('#customPlanBtn').addEventListener('click', () => { const idx = getTodayCycleDayIndex(); if (idx >= 0) openCustomPlan(idx); });
 $('#btnCancelPlan').addEventListener('click', closeCustomPlan);
 $('#btnConfirmPlan').addEventListener('click', confirmCustomPlan);
 $('#btnResetPlan').addEventListener('click', resetCurrentPlan);
@@ -912,7 +1007,10 @@ $('#saveStartDate').addEventListener('click', () => {
 $('#resetAllBtn').addEventListener('click', () => {
   localStorage.removeItem(STORAGE_KEY);
   localStorage.removeItem(SKIP_KEY);
-  ['back','chest','shoulder','abs'].forEach(m => localStorage.removeItem(CUSTOM_PLAN_PREFIX + m));
+  localStorage.removeItem(CYCLE_STORAGE_KEY);
+  // 清除所有自定义计划（旧格式+新格式）
+  for (let i = 0; i < 20; i++) localStorage.removeItem(CUSTOM_PLAN_PREFIX + 'day_' + i);
+  ['back','chest','shoulder','abs','cardio','legs','arms'].forEach(m => localStorage.removeItem(CUSTOM_PLAN_PREFIX + m));
   clearUndo();
   location.reload();
 });
