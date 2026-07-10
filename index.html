@@ -86,6 +86,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
 .heatmap-cell:hover { outline: 1px solid rgba(255,255,255,0.4); z-index: 2; }
 .heatmap-cell[data-tip]:hover::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); white-space: nowrap; background: #333; color: #fff; font-size: 10px; padding: 4px 8px; border-radius: 4px; pointer-events: none; z-index: 10; font-family: var(--font); }
 .heatmap-cell.today-cell { outline: 2px solid #fff; outline-offset: -1px; z-index: 1; }
+.heatmap-cell.clickable-cell { cursor: pointer; }
 .heatmap-cell.empty { background: rgba(255,255,255,0.04); pointer-events: none; }
 .heatmap-cell.future { background: rgba(255,255,255,0.04); pointer-events: none; }
 .heatmap-cell.back-cell { background: var(--back); }
@@ -266,6 +267,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
     <div class="header-actions">
       <button class="skip-btn" id="skipBtn" title="有事跳过，计划顺延一天">⏭ 今天练不了，顺延一天</button>
       <button class="custom-plan-btn" id="customPlanBtn" title="自定义今天练哪些动作">📝 自定义训练计划</button>
+      <button class="skip-btn" id="unskipBtn" title="撤销今天的跳过" style="display:none;">↩ 撤销跳过</button>
     </div>
   </header>
 
@@ -304,6 +306,14 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
       </div>
       <p class="settings-hint" id="cycleHint">起始日为<b>背日</b>，按 背→胸→肩→腹→有氧 5 日循环（练四休一）</p>
       <button id="editCycleBtn" style="margin-top:8px;padding:8px 16px;background:transparent;border:1px solid var(--secondary);color:var(--secondary);border-radius:20px;cursor:pointer;font-size:13px;font-family:var(--font);">🔄 自定义训练周期</button>
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
+        <label style="font-size:12px;color:var(--text-muted);margin-bottom:6px;display:block;">📅 管理跳过记录（可补跳过或删除过往跳过）</label>
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">
+          <input type="date" id="skipDateInput" style="flex:1;padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px;font-family:var(--font);">
+          <button id="addSkipBtn" style="padding:6px 12px;background:var(--primary);color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;font-family:var(--font);">添加跳过</button>
+        </div>
+        <div id="skipDateList" style="display:flex;flex-wrap:wrap;gap:4px;font-size:12px;"></div>
+      </div>
       <button id="resetAllBtn" style="margin-top:16px;padding:8px 16px;background:transparent;border:1px solid var(--danger);color:var(--danger);border-radius:20px;cursor:pointer;font-size:13px;font-family:var(--font);">🗑 清空所有数据（重新开始）</button>
     </div>
   </details>
@@ -741,9 +751,11 @@ function renderHeader(muscle) {
   if (isSkipped) {
     $('#customPlanBtn').style.display = 'none';
     $('#skipBtn').style.display = 'none';
+    $('#unskipBtn').style.display = '';
   } else {
     $('#customPlanBtn').style.display = '';
     $('#skipBtn').style.display = '';
+    $('#unskipBtn').style.display = 'none';
     $('#skipBtn').textContent = cd && cd.muscles[0] === 'cardio' ? '⏭ 今天休息，顺延一天' : '⏭ 今天练不了，顺延一天';
   }
 }
@@ -796,6 +808,7 @@ function renderHeatmap() {
   h += `<div class="heatmap-stat"><div class="stat-num train">${trainDays}</div><div class="stat-label">🏋️ 训练天数</div></div>`;
   h += `<div class="heatmap-stat"><div class="stat-num skip">${skipDays}</div><div class="stat-label">⏭ 跳过天数</div></div>`;
   h += `<div class="heatmap-stat"><div class="stat-num streak">${streak}</div><div class="stat-label">🔥 连续训练</div></div>`;
+  h += `<button onclick="shareHeatmap()" style="margin-left:8px;padding:4px 12px;background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:14px;cursor:pointer;font-size:12px;font-family:var(--font);align-self:center;" title="导出热力图为图片">📤 分享</button>`;
   h += '</div>';
 
   // ── 格子图（GitHub 风格：从年初到现在，全量展示） ──
@@ -891,7 +904,8 @@ function renderHeatmap() {
         cls = mcls + (ds === todayDs ? ' today-cell' : '');
         tip = `${d.getMonth()+1}/${d.getDate()} ${getDayEmoji(muscle)} ${mlabel}`;
       }
-      h += `<div class="heatmap-cell ${cls}"${tip ? ` data-tip="${tip}"` : ''}></div>`;
+      const clickable = !isBeforeStart && !isAfterToday;
+      h += `<div class="heatmap-cell ${cls}${clickable?' clickable-cell':''}"${tip ? ` data-tip="${tip}"` : ''}${clickable ? ` onclick="toggleSkipDate('${ds}')"` : ''}></div>`;
     }
     h += '</div>';
   }
@@ -919,7 +933,8 @@ function renderTodayWorkout(dayIndex) {
   $('#cardioSection').style.display = 'none';
   $('#todaySection').style.display = 'block';
   const planIds = getEffectivePlan(dayIndex);
-  const exs = planIds.map(id => EXERCISES.find(e => e.id === id)).filter(Boolean);
+  const diffOrder = {新手:0, 中级:1, 高级:2};
+  const exs = planIds.map(id => EXERCISES.find(e => e.id === id)).filter(Boolean).sort((a,b) => (diffOrder[a.difficulty]||0) - (diffOrder[b.difficulty]||0));
   if (exs.length === 0) {
     $('#todayList').innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:20px;">暂无动作，点击"📝 自定义训练计划"添加</p>';
     return;
@@ -962,7 +977,8 @@ function toggleCard(headerEl) {
 
 let currentLibTab = 'back';
 function renderLibrary(muscle) {
-  const exs = EXERCISES.filter(e => e.muscle === muscle);
+  const diffOrder = {新手:0, 中级:1, 高级:2};
+  const exs = EXERCISES.filter(e => e.muscle === muscle).sort((a,b) => (diffOrder[a.difficulty]||0) - (diffOrder[b.difficulty]||0));
   $('#libraryList').innerHTML = exs.length ? exs.map((ex,i) => makeCard(ex,i)).join('') : '<p style="color:var(--text-muted);text-align:center;padding:20px;">暂无动作</p>';
 }
 $$('.tag-btn').forEach(btn => {
@@ -976,6 +992,14 @@ $$('.tag-btn').forEach(btn => {
 
 // 跳过
 $('#skipBtn').addEventListener('click', () => $('#skipModal').classList.add('show'));
+$('#unskipBtn').addEventListener('click', () => {
+  const ts = todayStr();
+  const oldSkips = getSkipDates();
+  snapshotUndo(() => { localStorage.setItem(SKIP_KEY, JSON.stringify(oldSkips)); }, '撤销跳过今天');
+  localStorage.setItem(SKIP_KEY, JSON.stringify(oldSkips.filter(s => s !== ts)));
+  renderAll();
+  showToast('✅ 已撤销跳过，今天恢复训练');
+});
 $('#btnCancel').addEventListener('click', () => $('#skipModal').classList.remove('show'));
 $('#btnConfirm').addEventListener('click', () => {
   skipToday(); $('#skipModal').classList.remove('show'); renderAll();
@@ -1054,7 +1078,63 @@ function updateSettingsUI() {
   $('#startDateInput').value = formatLocalDate(getStartDate());
   const cycle = getCycle();
   $('#cycleHint').innerHTML = '起始日为<b>' + cycle[0].name + '</b>，按 ' + cycle.map(d=>d.name).join('→') + ' ' + cycle.length + '日循环';
+  renderSkipDateList();
 }
+
+// ── 跳过日期管理 ──
+function renderSkipDateList() {
+  const skips = getSkipDates().sort();
+  const today = todayStr();
+  if (skips.length === 0) {
+    $('#skipDateList').innerHTML = '<span style="color:var(--text-muted);">暂无跳过记录（也可点击热力图格子切换跳过）</span>';
+  } else {
+    $('#skipDateList').innerHTML = skips.map(s => {
+      const isToday = s === today;
+      return `<span style="display:inline-flex;align-items:center;gap:3px;background:${isToday?'var(--primary-dim)':'var(--bg)'};border:1px solid var(--border);border-radius:10px;padding:2px 8px;font-size:11px;color:var(--danger);">${s}${isToday?' 🔴':''} <button onclick="removeSkipDate('${s}')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:13px;padding:0 2px;line-height:1;" title="删除此跳过">×</button></span>`;
+    }).join('');
+  }
+  $('#skipDateInput').value = '';
+}
+
+function addSkipDate(dateStr) {
+  if (!dateStr) return;
+  const d = parseLocalDate(dateStr);
+  if (isNaN(d)) return;
+  const start = getStartDate();
+  if (d < start) { showToast('⚠ 不能跳过起始日之前的日期'); return; }
+  const today = new Date(); today.setHours(0,0,0,0);
+  if (d > today) { showToast('⚠ 不能跳过未来的日期'); return; }
+  const skips = getSkipDates();
+  if (skips.includes(dateStr)) { showToast('⚠ 该日期已在跳过列表中'); return; }
+  snapshotUndo(() => { localStorage.setItem(SKIP_KEY, JSON.stringify(skips)); }, '添加跳过 ' + dateStr);
+  localStorage.setItem(SKIP_KEY, JSON.stringify([...skips, dateStr]));
+  renderAll();
+  updateSettingsUI();
+  showToast('✅ 已添加跳过：' + dateStr);
+}
+
+function removeSkipDate(dateStr) {
+  const skips = getSkipDates();
+  snapshotUndo(() => { localStorage.setItem(SKIP_KEY, JSON.stringify(skips)); }, '删除跳过 ' + dateStr);
+  localStorage.setItem(SKIP_KEY, JSON.stringify(skips.filter(s => s !== dateStr)));
+  renderAll();
+  updateSettingsUI();
+  showToast('✅ 已删除跳过：' + dateStr);
+}
+
+function toggleSkipDate(dateStr) {
+  const skips = getSkipDates();
+  if (skips.includes(dateStr)) {
+    removeSkipDate(dateStr);
+  } else {
+    addSkipDate(dateStr);
+  }
+}
+
+$('#addSkipBtn').addEventListener('click', () => {
+  const val = $('#skipDateInput').value;
+  if (val) addSkipDate(val);
+});
 
 // ── 训练周期编辑器 ──
 const CYCLE_COLORS = ['#4ecdc4','#ff6b35','#f0c040','#22c55e','#60a5fa','#e85d75','#a78bfa','#f472b6'];
@@ -1194,9 +1274,59 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// ── 分享热力图（Canvas 导出为 PNG）──
+function shareHeatmap() {
+  const start = getStartDate();
+  const today = new Date(); today.setHours(0,0,0,0);
+  const skipSet = new Set(getSkipDates());
+  const cycle = getCycle();
+  let trainDays = 0, skipDays = 0;
+  const d0 = new Date(start);
+  while (d0 <= today) { const ds = formatLocalDate(d0); skipSet.has(ds) ? skipDays++ : trainDays++; d0.setDate(d0.getDate() + 1); }
+  let streak = 0; const check = new Date(today);
+  while (check >= start) { if (skipSet.has(formatLocalDate(check))) break; streak++; check.setDate(check.getDate() - 1); }
+  const yearStart = new Date(start.getFullYear(), 0, 1);
+  const ysDow = yearStart.getDay();
+  const gridStart = new Date(yearStart);
+  gridStart.setDate(gridStart.getDate() + (ysDow === 0 ? -6 : 1 - ysDow));
+  const monthLast = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  const mlDow = monthLast.getDay();
+  const gridEnd = new Date(monthLast);
+  gridEnd.setDate(gridEnd.getDate() + (mlDow === 0 ? 0 : 7 - mlDow));
+  const weeks = []; const cursor = new Date(gridStart);
+  while (cursor <= gridEnd) { const week = []; for (let dow = 0; dow < 7; dow++) { const d = new Date(cursor); d.setDate(d.getDate() + dow); week.push(new Date(d)); } weeks.push(week); cursor.setDate(cursor.getDate() + 7); }
+  const rowOrder = [1,2,3,4,5,6,0];
+  const cs = 12, g = 2, lp = 60, tp = 50, bp = 40, rp = 20;
+  const cw = lp + weeks.length * (cs + g) + rp;
+  const ch = tp + 7 * (cs + g) + bp;
+  const canvas = document.createElement('canvas'); canvas.width = cw; canvas.height = ch;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#121418'; ctx.fillRect(0, 0, cw, ch);
+  ctx.fillStyle = '#e4e2df'; ctx.font = 'bold 14px "Microsoft YaHei","PingFang SC",sans-serif';
+  ctx.fillText('🏋️ 新手健身追踪器 · 训练热力图', 16, 24);
+  ctx.font = '12px "Microsoft YaHei","PingFang SC",sans-serif'; ctx.fillStyle = '#a09d98';
+  ctx.fillText('训练 ' + trainDays + ' 天  |  跳过 ' + skipDays + ' 天  |  连续 ' + streak + ' 天  |  ' + today.getFullYear() + '年' + (today.getMonth()+1) + '月' + today.getDate() + '日', 16, 42);
+  const todayDs = formatLocalDate(today);
+  for (let ci = 0; ci < weeks.length; ci++) {
+    for (let ri = 0; ri < 7; ri++) {
+      const d = weeks[ci][rowOrder[ri]]; const ds = formatLocalDate(d);
+      const x = lp + ci * (cs + g); const y = tp + ri * (cs + g);
+      if (d < start || d > today) { ctx.fillStyle = 'rgba(255,255,255,0.04)'; }
+      else if (skipSet.has(ds)) { ctx.fillStyle = 'rgba(232,93,117,0.35)'; }
+      else { const idx = getCycleDayIndexForDate(d); const cd = idx >= 0 ? cycle[idx] : null; ctx.fillStyle = cd ? cd.color : '#333'; }
+      ctx.fillRect(x, y, cs, cs);
+      if (ds === todayDs) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(x, y, cs, cs); }
+    }
+  }
+  ctx.fillStyle = '#6b6864'; ctx.font = '9px "Microsoft YaHei","PingFang SC",sans-serif';
+  for (let ci = 0; ci < weeks.length; ci++) { const midDate = weeks[ci][3]; if (midDate.getDate() <= 7) ctx.fillText((midDate.getMonth()+1)+'月', lp + ci * (cs + g), tp - 6); }
+  const link = document.createElement('a'); link.download = 'fitness-heatmap-' + todayDs + '.png'; link.href = canvas.toDataURL('image/png'); link.click();
+  showToast('📤 热力图已导出为 PNG 图片');
+}
+
 updateSettingsUI();
 renderAll();
-console.log('🏋️ 新手健身追踪器 · 背→胸→肩→腹→有氧 · 共' + EXERCISES.length + '个动作');
+console.log('🏋️ 新手健身追踪器 · ' + EXERCISES.length + '个动作');
 </script>
 </body>
 </html>
