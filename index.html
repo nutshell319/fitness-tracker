@@ -447,6 +447,14 @@ function getDayLabelColor(cd) {
   const cs = cd.colors || [cd.color];
   return cs[0];
 }
+// 压缩图标显示：周期栏最多2个，header根据长度调字体
+function compactEmoji(cd, max) {
+  if (!cd) return '';
+  const em = cd.emoji || '';
+  if (!max || em.length <= max*2) return em;
+  // 每个emoji通常是2个char（含variation selector），截取前max个
+  return Array.from(em).slice(0, max).join('');
+}
 
 // ============================================================================
 // LocalStorage
@@ -812,7 +820,11 @@ function renderHeader(muscle) {
   h.className = 'header ' + (muscle === 'skipped' ? 'cardio' : cssMuscle);
   const names = {...getCycleDayNames(), skipped:'已跳过'};
   const skippedMots = {skipped:'今天休息，训练计划已整体后移'};
-  $('#dayEmoji').textContent = cd ? cd.emoji : '⏭';
+  const dem = cd ? cd.emoji : '⏭';
+  $('#dayEmoji').textContent = dem;
+  // 多图标时缩小字号
+  const emLen = Array.from(dem).length;
+  $('#dayEmoji').style.fontSize = emLen > 4 ? '28px' : emLen > 2 ? '38px' : '';
   $('#dayLabel').textContent = cd ? cd.name : (muscle === 'skipped' ? '已跳过' : getCycleDayName(muscle));
   $('#dayTitle').textContent = cd ? cd.name : (muscle === 'skipped' ? '已跳过' : getCycleDayName(muscle));
   $('#motivation').textContent = (cd && cd.motivation) ? cd.motivation : '今天休息，训练计划已整体后移';
@@ -843,7 +855,7 @@ function renderCycleBar() {
     const d = new Date(today); d.setDate(d.getDate()+o);
     const cd = getCycleDayForDate(d);
     const cssCls = cd ? cd.muscles[0] : 'skipped';
-    const emoji = cd ? cd.emoji : '⏭';
+    const emoji = cd ? compactEmoji(cd, 2) : '⏭';
     const label = cd ? cd.name : '跳过';
     const labelClr = cd ? getDayLabelColor(cd) : '';
     h += `<div class="cycle-day ${cd?'':'skipped'}${o===0?' today':''}"><span class="cyc-date">${d.getMonth()+1}/${d.getDate()}</span><span class="cyc-emoji">${emoji}</span><span class="cyc-label" style="color:${labelClr}">${label}</span></div>`;
@@ -1431,7 +1443,15 @@ function applyMusclePreset(dayEl) {
   const combinedEmoji = presets.map(p => p.emoji).join('');
   const combinedColors = presets.map(p => p.color);
   if (nameInput) nameInput.value = combinedName;
-  if (emojiSelect) emojiSelect.value = combinedEmoji;
+  if (emojiSelect) {
+    // 确保组合图标在选项中
+    if (!Array.from(emojiSelect.options).some(o => o.value === combinedEmoji)) {
+      const opt = document.createElement('option');
+      opt.value = combinedEmoji; opt.textContent = combinedEmoji;
+      emojiSelect.appendChild(opt);
+    }
+    emojiSelect.value = combinedEmoji;
+  }
   if (colorInput) { colorInput.value = combinedColors[0]; colorInput.dataset.colors = combinedColors.join(','); }
   if (motInput && !motInput.value) motInput.placeholder = presets[0].motivation;
 }
