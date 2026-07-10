@@ -435,6 +435,18 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
 // 旧常量已迁移到 DEFAULT_CYCLE + getCycle() / getTodayCycleDay()，此处仅作兼容引用
 function getCycleDayName(muscle) { const cd = getCycle().find(d => d.muscles.includes(muscle)); return cd ? cd.name : muscle; }
 function getCycleDayNames() { const m={}; getCycle().forEach(d=>{d.muscles.forEach(mm=>{m[mm]=d.name;});}); return m; }
+// 获取周期日的 cell 背景色：单色或渐变（多肌肉群）
+function getDayBg(cd) {
+  if (!cd) return '#333';
+  const cs = cd.colors || [cd.color];
+  if (cs.length <= 1) return cs[0];
+  return 'linear-gradient(135deg,' + cs[0] + ' 50%,' + cs[1] + ' 50%)';
+}
+function getDayLabelColor(cd) {
+  if (!cd) return '';
+  const cs = cd.colors || [cd.color];
+  return cs[0];
+}
 
 // ============================================================================
 // LocalStorage
@@ -656,11 +668,11 @@ const EXERCISES = [
 // 可自定义训练周期 - 数据模型
 // ============================================================================
 const DEFAULT_CYCLE = [
-  {id:'back', name:'背日', muscles:['back'], emoji:'💪', color:'#4ecdc4', motivation:'打造倒三角，从每一次下拉开始'},
-  {id:'chest', name:'胸日', muscles:['chest'], emoji:'🔥', color:'#ff6b35', motivation:'推起重量，推起自信'},
-  {id:'shoulder', name:'肩日', muscles:['shoulder'], emoji:'🏋️', color:'#f0c040', motivation:'宽肩撑起气场，饱满三角肌'},
-  {id:'abs', name:'腹日', muscles:['abs'], emoji:'🧱', color:'#22c55e', motivation:'核心是力量之源，雕刻六块腹肌'},
-  {id:'cardio', name:'有氧日', muscles:['cardio'], emoji:'🚶', color:'#60a5fa', motivation:'燃脂快走，甩掉脂肪保留肌肉 🚶'},
+  {id:'back', name:'背日', muscles:['back'], emoji:'💪', color:'#4ecdc4', colors:['#4ecdc4'], motivation:'打造倒三角，从每一次下拉开始'},
+  {id:'chest', name:'胸日', muscles:['chest'], emoji:'🔥', color:'#ff6b35', colors:['#ff6b35'], motivation:'推起重量，推起自信'},
+  {id:'shoulder', name:'肩日', muscles:['shoulder'], emoji:'🏋️', color:'#f0c040', colors:['#f0c040'], motivation:'宽肩撑起气场，饱满三角肌'},
+  {id:'abs', name:'腹日', muscles:['abs'], emoji:'🧱', color:'#22c55e', colors:['#22c55e'], motivation:'核心是力量之源，雕刻六块腹肌'},
+  {id:'cardio', name:'有氧日', muscles:['cardio'], emoji:'🚶', color:'#60a5fa', colors:['#60a5fa'], motivation:'燃脂快走，甩掉脂肪保留肌肉 🚶'},
 ];
 const CYCLE_STORAGE_KEY = 'ft_cycle_config';
 
@@ -833,7 +845,8 @@ function renderCycleBar() {
     const cssCls = cd ? cd.muscles[0] : 'skipped';
     const emoji = cd ? cd.emoji : '⏭';
     const label = cd ? cd.name : '跳过';
-    h += `<div class="cycle-day ${cd?'':'skipped'}${o===0?' today':''}"><span class="cyc-date">${d.getMonth()+1}/${d.getDate()}</span><span class="cyc-emoji">${emoji}</span><span class="cyc-label" style="color:${cd?cd.color:''}">${label}</span></div>`;
+    const labelClr = cd ? getDayLabelColor(cd) : '';
+    h += `<div class="cycle-day ${cd?'':'skipped'}${o===0?' today':''}"><span class="cyc-date">${d.getMonth()+1}/${d.getDate()}</span><span class="cyc-emoji">${emoji}</span><span class="cyc-label" style="color:${labelClr}">${label}</span></div>`;
   }
   h += '</div>';
   $('#cycleBar').innerHTML = h;
@@ -949,7 +962,7 @@ function renderHeatmap() {
       const ds = formatLocalDate(d);
       const isBeforeStart = d < start;
       const isAfterToday = d > today;
-      let cls = '', tip = '';
+      let cls = '', tip = '', style = '';
       if (isBeforeStart) {
         cls = 'empty';
       } else if (isAfterToday) {
@@ -958,14 +971,16 @@ function renderHeatmap() {
         cls = 'skip-cell';
         tip = `${d.getMonth()+1}/${d.getDate()} ⏭ 跳过`;
       } else {
-        const muscle = getMuscleForDate(d);
-        const mcls = muscle === 'skipped' ? 'skip-cell' : muscle + '-cell';
-        const mlabel = DAY_NAMES[muscle] || muscle;
-        cls = mcls + (ds === todayDs ? ' today-cell' : '');
-        tip = `${d.getMonth()+1}/${d.getDate()} ${getDayEmoji(muscle)} ${mlabel}`;
+        const cd = getCycleDayForDate(d);
+        const label = cd ? cd.name : '';
+        const bg = getDayBg(cd);
+        tip = `${d.getMonth()+1}/${d.getDate()} ${cd?cd.emoji:''} ${label}`;
+        cls = (ds === todayDs ? ' today-cell' : '');
+        // inline style for gradient multi-color support
+        style = `background:${bg};`;
       }
       const clickable = !isBeforeStart && !isAfterToday;
-      h += `<div class="heatmap-cell ${cls}${clickable?' clickable-cell':''}"${tip ? ` data-tip="${tip}"` : ''}${clickable ? ` onclick="toggleSkipDate('${ds}')"` : ''}></div>`;
+      h += `<div class="heatmap-cell ${cls}${clickable?' clickable-cell':''}" style="${style||''}"${tip ? ` data-tip="${tip}"` : ''}${clickable ? ` onclick="toggleSkipDate('${ds}')"` : ''}></div>`;
     }
     h += '</div>';
   }
@@ -1283,11 +1298,13 @@ document.getElementById('btnConfirmCycle').addEventListener('click', () => {
     const name = el.querySelector('.ce-name').value.trim() || '训练日';
     const emoji = el.querySelector('.ce-emoji').value || '💪';
     const color = el.querySelector('.ce-color').value || '#4ecdc4';
+    const colorsStr = el.querySelector('.ce-color').dataset.colors || color;
+    const colors = colorsStr.split(',');
     const motivation = el.querySelector('.ce-motivation').value.trim();
     const muscles = [];
     el.querySelectorAll('.cycle-editor-muscle.on').forEach(m => muscles.push(m.dataset.muscle));
     if (muscles.length === 0) muscles.push('back'); // 至少一个肌肉群
-    days.push({name, emoji, color, motivation, muscles, id: muscles[0]});
+    days.push({name, emoji, color, colors, motivation, muscles, id: muscles[0]});
   });
   if (days.length === 0) { showToast('⚠ 至少保留一天'); return; }
   const oldCycle = localStorage.getItem(CYCLE_STORAGE_KEY);
@@ -1403,17 +1420,20 @@ function applyMusclePreset(dayEl) {
   const onMuscles = [];
   dayEl.querySelectorAll('.cycle-editor-muscle.on').forEach(m => onMuscles.push(m.dataset.muscle));
   if (onMuscles.length === 0) return;
-  const preset = MUSCLE_PRESETS[onMuscles[0]];
-  if (!preset) return;
+  const presets = onMuscles.map(m => MUSCLE_PRESETS[m]).filter(Boolean);
+  if (presets.length === 0) return;
   const nameInput = dayEl.querySelector('.ce-name');
   const emojiSelect = dayEl.querySelector('.ce-emoji');
   const colorInput = dayEl.querySelector('.ce-color');
   const motInput = dayEl.querySelector('.ce-motivation');
-  // 只更新未被用户手动修改过的字段（简单策略：直接覆盖）
-  if (nameInput) nameInput.value = preset.name;
-  if (emojiSelect) emojiSelect.value = preset.emoji;
-  if (colorInput) colorInput.value = preset.color;
-  if (motInput && !motInput.value) motInput.placeholder = preset.motivation;
+  // 合并多个肌肉群的名称、图标、颜色
+  const combinedName = presets.map(p => p.name).join('+');
+  const combinedEmoji = presets.map(p => p.emoji).join('');
+  const combinedColors = presets.map(p => p.color);
+  if (nameInput) nameInput.value = combinedName;
+  if (emojiSelect) emojiSelect.value = combinedEmoji;
+  if (colorInput) { colorInput.value = combinedColors[0]; colorInput.dataset.colors = combinedColors.join(','); }
+  if (motInput && !motInput.value) motInput.placeholder = presets[0].motivation;
 }
 
 // 增强 toggleCycleMuscle，触发时自动应用预设
@@ -1511,7 +1531,12 @@ function shareHeatmap() {
       const x = lp + ci * (cs + g); const y = tp + ri * (cs + g);
       if (d < start || d > today) { ctx.fillStyle = 'rgba(255,255,255,0.04)'; }
       else if (skipSet.has(ds)) { ctx.fillStyle = 'rgba(232,93,117,0.4)'; }
-      else { const idx = getCycleDayIndexForDate(d); const cd = idx >= 0 ? cycle[idx] : null; ctx.fillStyle = cd ? cd.color : '#333'; }
+      else { const idx = getCycleDayIndexForDate(d); const cd = idx >= 0 ? cycle[idx] : null;
+      if (cd && cd.colors && cd.colors.length > 1) {
+        const grd = ctx.createLinearGradient(x, y, x + cs, y + cs);
+        grd.addColorStop(0, cd.colors[0]); grd.addColorStop(1, cd.colors[1] || cd.colors[0]);
+        ctx.fillStyle = grd;
+      } else { ctx.fillStyle = cd ? (cd.colors?.[0] || cd.color) : '#333'; } }
       ctx.beginPath(); ctx.roundRect(x, y, cs, cs, 3*S); ctx.fill();
       if (ds === todayDs) {
         ctx.strokeStyle = '#fff'; ctx.lineWidth = 2*S;
