@@ -96,6 +96,59 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
 .skip-btn:hover { border-color: var(--danger); color: var(--danger); }
 .custom-plan-btn:hover { border-color: var(--primary); color: var(--primary); }
 
+/* ── 打卡按钮 ── */
+.checkin-btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 32px; background: var(--primary); color: #fff; border: none; border-radius: 24px; cursor: pointer; font-size: 15px; font-weight: 700; font-family: var(--font); transition: all 0.25s; animation: pulse 2s infinite; position: relative; overflow: hidden; }
+.checkin-btn:hover { opacity: 0.9; transform: scale(1.03); }
+.checkin-btn:disabled { background: #3a3d47; color: var(--text-muted); cursor: not-allowed; animation: none; }
+.checkin-btn:disabled:hover { opacity: 1; transform: none; }
+.checkin-btn.checked { background: var(--abs); animation: none; }
+.checkin-btn.checked::before { content: '✅ '; }
+.checkin-btn .checkin-hint { font-size: 11px; font-weight: 400; opacity: 0.8; }
+
+/* ── 微章墙 ── */
+.badge-wall { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+.badge-icon { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: default; transition: all 0.25s; position: relative; }
+.badge-icon.earned { cursor: pointer; animation: badgeEarn 0.6s cubic-bezier(.22,1,.36,1); }
+.badge-icon.earned:hover { transform: scale(1.2); }
+.badge-icon.locked { opacity: 0.25; filter: grayscale(1); }
+.badge-icon .badge-tooltip { display: none; position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); background: #333; color: #fff; font-size: 11px; padding: 6px 10px; border-radius: 6px; white-space: nowrap; pointer-events: none; z-index: 10; }
+.badge-icon.earned:hover .badge-tooltip { display: block; }
+
+/* ── 里程碑弹窗 ── */
+.badge-modal { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 1001; pointer-events: none; opacity: 0; transition: opacity 0.3s; }
+.badge-modal.show { opacity: 1; pointer-events: auto; }
+.badge-modal-content { text-align: center; animation: badgePopIn 0.5s cubic-bezier(.22,1,.36,1); }
+.badge-modal-content .badge-big { font-size: 80px; display: block; animation: badgeSpin 0.8s cubic-bezier(.22,1,.36,1); }
+.badge-modal-content .badge-name { font-size: 28px; font-weight: 700; margin: 12px 0 6px; }
+.badge-modal-content .badge-desc { font-size: 15px; color: var(--text-secondary); margin-bottom: 20px; }
+.badge-modal-content .badge-close { padding: 10px 28px; background: var(--primary); color: #fff; border: none; border-radius: 20px; font-size: 15px; font-weight: 600; cursor: pointer; font-family: var(--font); }
+@keyframes badgePopIn { from { opacity: 0; transform: scale(0.3); } to { opacity: 1; transform: scale(1); } }
+@keyframes badgeSpin { from { transform: rotateY(0deg); } to { transform: rotateY(360deg); } }
+@keyframes badgeEarn { 0% { transform: scale(0); } 60% { transform: scale(1.4); } 100% { transform: scale(1); } }
+
+/* ── 庆祝动画覆盖层 ── */
+.confetti-overlay { position: fixed; inset: 0; pointer-events: none; z-index: 1000; }
+.streak-popup { position: fixed; top: 40%; left: 50%; transform: translate(-50%,-50%) scale(0); z-index: 1001; pointer-events: none; transition: transform 0.5s cubic-bezier(.22,1,.36,1); }
+.streak-popup.show { transform: translate(-50%,-50%) scale(1); }
+.streak-popup .streak-num { font-size: 64px; font-weight: 900; text-align: center; line-height: 1; }
+.streak-popup .streak-label { font-size: 18px; color: var(--text-secondary); text-align: center; margin-top: 4px; }
+.encourage-text { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px); z-index: 1001; pointer-events: none; font-size: 15px; color: var(--text-secondary); text-align: center; opacity: 0; transition: all 0.5s cubic-bezier(.22,1,.36,1); }
+.encourage-text.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── 分享按钮组 ── */
+.share-btn-group { display: flex; gap: 6px; justify-content: center; margin-top: 6px; flex-wrap: wrap; }
+.share-btn-sm { padding: 4px 10px; background: transparent; border: 1px solid var(--border); color: var(--text-muted); border-radius: 14px; cursor: pointer; font-size: 11px; font-family: var(--font); transition: all 0.2s; }
+.share-btn-sm:hover { border-color: var(--primary); color: var(--primary); }
+
+/* ── 统计数字新样式 ── */
+.heatmap-stat .stat-num.record { color: #a78bfa; }
+
+/* ── 周期栏打卡圆点 ── */
+.cyc-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-left: 3px; vertical-align: middle; }
+.cyc-dot.done { background: var(--abs); }
+.cyc-dot.undone { background: var(--border); }
+.cyc-dot.skipped-dot { background: var(--danger); }
+
 .cycle-bar { background: var(--bg-card); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 20px; border: 1px solid var(--border); }
 .cycle-bar h3 { font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 12px; text-align: center; }
 .cycle-days { display: flex; gap: 6px; justify-content: center; }
@@ -318,10 +371,18 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
         nutshell319/fitness-tracker
       </a>
     </p>
+    <div style="margin-bottom:10px;">
+      <button class="checkin-btn" id="checkinBtn" disabled onclick="performCheckin()">🔥 今日打卡</button>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:6px;display:none;" id="checkinHint">至少完成 1 个动作才能打卡</div>
+    </div>
     <div class="header-actions">
       <button class="skip-btn" id="skipBtn" title="有事跳过，计划顺延一天">⏭ 今天练不了，顺延一天</button>
       <button class="custom-plan-btn" id="customPlanBtn" title="自定义今天练哪些动作">📝 自定义训练计划</button>
       <button class="skip-btn" id="unskipBtn" title="撤销今天的跳过" style="display:none;">↩ 撤销跳过</button>
+    </div>
+    <div class="share-btn-group" id="headerShareBtns" style="margin-top:8px;display:none;">
+      <button class="share-btn-sm" onclick="shareHeatmap()">📤 热力图</button>
+      <button class="share-btn-sm" onclick="shareCheckinCard()">📸 日签</button>
     </div>
   </header>
 
@@ -425,6 +486,21 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
 
 <div class="toast" id="toast"></div>
 
+<!-- 庆祝动画覆盖层 -->
+<canvas class="confetti-overlay" id="confettiCanvas"></canvas>
+<div class="streak-popup" id="streakPopup"><div class="streak-num" id="streakNum"></div><div class="streak-label" id="streakLabel"></div></div>
+<div class="encourage-text" id="encourageText"></div>
+
+<!-- 里程碑徽章弹窗 -->
+<div class="badge-modal" id="badgeModal">
+  <div class="badge-modal-content">
+    <span class="badge-big" id="badgeBig"></span>
+    <div class="badge-name" id="badgeName"></div>
+    <div class="badge-desc" id="badgeDesc"></div>
+    <button class="badge-close" onclick="closeBadgeModal()">🎉 太棒了！</button>
+  </div>
+</div>
+
 <div class="undo-bar" id="undoBar">
   <span id="undoLabel"></span>
   <button class="undo-btn" onclick="performUndo()">↩ 撤销</button>
@@ -493,6 +569,349 @@ function getDaysDiff() {
     d.setDate(d.getDate() + 1);
   }
   return count - 1; // 起始日当天 = 第 0 天
+}
+
+// ══════════════════════════════════════════════════════════════
+// 打卡激励系统
+// ══════════════════════════════════════════════════════════════
+
+const CHECKIN_KEY_PREFIX = 'ft_checkin_';
+const LONGEST_STREAK_KEY = 'ft_longest_streak';
+const BADGES_KEY = 'ft_badges';
+
+// 里程碑徽章定义
+const BADGES = [
+  {id:'streak7', days:7, icon:'🔥', name:'初露锋芒', color:'#ff6b35', desc:'坚持一周，你已经超越了昨天的自己'},
+  {id:'streak14', days:14, icon:'💪', name:'渐入佳境', color:'#4ecdc4', desc:'两周不间断，身体的反馈正在路上'},
+  {id:'streak30', days:30, icon:'⚡', name:'养成习惯', color:'#f0c040', desc:'科学表明 30 天足以养成一个习惯'},
+  {id:'streak60', days:60, icon:'🏆', name:'持之以恒', color:'#a78bfa', desc:'两个月，健身已成为你的日常'},
+  {id:'streak100', days:100, icon:'🌟', name:'百炼成钢', color:'#f472b6', desc:'一百天的汗水，锻造成钢铁般的意志'},
+  {id:'streak180', days:180, icon:'👑', name:'半载修行', color:'#60a5fa', desc:'半年不间断，你已是人群中的 1%'},
+  {id:'streak365', days:365, icon:'🎖️', name:'全年无休', color:'#e85d75', desc:'整整一年的自律，值得所有人的掌声'},
+];
+
+// 鼓励语库
+const ENCOURAGES = {
+  newStart: ["每一个传奇都始于第一步，今天就是你的第一步", "出发了就别回头，你已经在路上了", "第一次打卡，未来的你会感谢今天的选择"],
+  ongoing: ["坚持不是一时的爆发，而是日复一日的选择", "每一次打卡，都是对未来的自己说感谢", "汗水是最好的护肤品，打卡是最好的自律证明"],
+  smallWin: ["一周的汗水不会白流，身体已经开始改变", "七天磨一剑，自律养成的第一个里程碑", "你已经超过了 90% 只在脑子里健身的人"],
+  habit: ["两周了！这不是坚持，这已经是你的生活方式", "习惯的力量，正在悄悄改变你的身体", "两周不间断，还有什么能阻挡你？"],
+  breakthrough: ["三十天的自律，换来一个全新的自己", "一个月了！这种成就感比任何奖励都珍贵", "三十天前的你和现在，已经是两个人"],
+  milestone: ["解锁新成就！每一次打卡都是对自己的承诺", "🏅 又拿下一枚徽章，你的勋章墙正在发光", "里程碑不是终点，是下一个目标的起点"],
+  comeback: ["回来就好，中断不算失败，放弃才是", "重新出发比从不开始更值得尊敬", "每一次中断后的回归，都是意志力的升级"],
+};
+
+function pickEncourage(streak, isMilestone) {
+  if (isMilestone) return ENCOURAGES.milestone[Math.floor(Math.random() * ENCOURAGES.milestone.length)];
+  if (streak <= 1) return ENCOURAGES.newStart[Math.floor(Math.random() * ENCOURAGES.newStart.length)];
+  if (streak <= 6) return ENCOURAGES.ongoing[Math.floor(Math.random() * ENCOURAGES.ongoing.length)];
+  if (streak <= 13) return ENCOURAGES.smallWin[Math.floor(Math.random() * ENCOURAGES.smallWin.length)];
+  if (streak <= 29) return ENCOURAGES.habit[Math.floor(Math.random() * ENCOURAGES.habit.length)];
+  return ENCOURAGES.breakthrough[Math.floor(Math.random() * ENCOURAGES.breakthrough.length)];
+}
+
+function getCheckinSet() {
+  try {
+    const set = new Set();
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k.startsWith(CHECKIN_KEY_PREFIX)) set.add(k.replace(CHECKIN_KEY_PREFIX, ''));
+    }
+    return set;
+  } catch(e) { return new Set(); }
+}
+
+function isCheckedIn(dateStr) { return getCheckinSet().has(dateStr); }
+function isTodayCheckedIn() { return isCheckedIn(todayStr()); }
+
+// 计算当前连续打卡天数（从今天往回数，遇到跳过日期停止）
+function getCurrentStreak() {
+  const start = getStartDate();
+  const today = new Date(); today.setHours(0,0,0,0);
+  const skipSet = new Set(getSkipDates());
+  const checkinSet = getCheckinSet();
+  let streak = 0;
+  const check = new Date(today);
+  while (check >= start) {
+    const ds = formatLocalDate(check);
+    if (skipSet.has(ds)) break; // 跳过日期也断连续
+    if (!checkinSet.has(ds)) break; // 未打卡则断
+    streak++;
+    check.setDate(check.getDate() - 1);
+  }
+  return streak;
+}
+
+function getLongestStreak() {
+  try { const v = localStorage.getItem(LONGEST_STREAK_KEY); return v ? parseInt(v,10) : 0; } catch(e) { return 0; }
+}
+
+function updateLongestStreak(streak) {
+  const current = getLongestStreak();
+  if (streak > current) localStorage.setItem(LONGEST_STREAK_KEY, String(streak));
+}
+
+function getEarnedBadges() {
+  try { const raw = localStorage.getItem(BADGES_KEY); return raw ? JSON.parse(raw) : []; } catch(e) { return []; }
+}
+
+function earnBadge(badge) {
+  const earned = getEarnedBadges();
+  if (earned.find(b => b.id === badge.id)) return null; // 已有
+  const record = {id:badge.id, name:badge.name, icon:badge.icon, unlockedAt:todayStr(), streakAt:getCurrentStreak()};
+  earned.push(record);
+  localStorage.setItem(BADGES_KEY, JSON.stringify(earned));
+  return record;
+}
+
+// 检测是否达到新里程碑，返回新解锁的徽章
+function checkNewBadges(streak) {
+  const earned = getEarnedBadges();
+  const newBadges = [];
+  for (const b of BADGES) {
+    if (streak >= b.days && !earned.find(e => e.id === b.id)) {
+      const record = earnBadge(b);
+      if (record) newBadges.push(b);
+    }
+  }
+  return newBadges;
+}
+
+// 获取下一个待解锁的徽章
+function getNextBadge(streak) {
+  const earned = getEarnedBadges();
+  for (const b of BADGES) {
+    if (streak < b.days && !earned.find(e => e.id === b.id)) return b;
+  }
+  return null;
+}
+
+// ── 庆祝动画 ──
+let confettiParticles = [];
+let confettiAnimId = null;
+
+function launchConfetti() {
+  const canvas = document.getElementById('confettiCanvas');
+  if (!canvas) return;
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const ctx = canvas.getContext('2d');
+
+  // 生成粒子
+  const colors = ['#ff6b35','#4ecdc4','#f0c040','#22c55e','#a78bfa','#f472b6','#60a5fa','#e85d75','#fff'];
+  confettiParticles = [];
+  const cx = window.innerWidth / 2;
+  const cy = window.innerHeight * 0.35;
+  for (let i = 0; i < 80; i++) {
+    confettiParticles.push({
+      x: cx + (Math.random() - 0.5) * 160,
+      y: cy + (Math.random() - 0.5) * 60,
+      vx: (Math.random() - 0.5) * 12,
+      vy: Math.random() * -10 - 4,
+      w: 6 + Math.random() * 8,
+      h: 3 + Math.random() * 6,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      rotation: Math.random() * Math.PI * 2,
+      rotSpeed: (Math.random() - 0.5) * 0.3,
+      opacity: 1,
+      gravity: 0.15 + Math.random() * 0.15,
+    });
+  }
+
+  let frame = 0;
+  function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let alive = 0;
+    for (const p of confettiParticles) {
+      p.vy += p.gravity;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.rotation += p.rotSpeed;
+      if (frame > 20) p.opacity -= 0.02;
+      if (p.opacity <= 0) continue;
+      alive++;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, p.opacity);
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rotation);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+      ctx.restore();
+    }
+    frame++;
+    if (alive > 0 && frame < 80) {
+      confettiAnimId = requestAnimationFrame(animate);
+    } else {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      confettiAnimId = null;
+    }
+  }
+  if (confettiAnimId) cancelAnimationFrame(confettiAnimId);
+  confettiAnimId = requestAnimationFrame(animate);
+}
+
+function showStreakPopup(streak, isMilestone, badgeColor) {
+  const popup = document.getElementById('streakPopup');
+  const numEl = document.getElementById('streakNum');
+  const labelEl = document.getElementById('streakLabel');
+  if (!popup || !numEl || !labelEl) return;
+
+  popup.classList.remove('show');
+  numEl.style.color = badgeColor || '#ff6b35';
+  numEl.style.opacity = '0';
+  numEl.style.transform = 'scale(0)';
+
+  // 数字滚动效果
+  let current = 0;
+  const target = streak;
+  const duration = 800;
+  const startTime = performance.now();
+
+  function tick(ts) {
+    const elapsed = ts - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    // easeOutBack
+    const c1 = 1.70158, c3 = c1 + 1;
+    const val = 1 + c3 * Math.pow(progress - 1, 3) + c1 * Math.pow(progress - 1, 2);
+    current = Math.round(target * val);
+    if (current > target) current = target;
+    numEl.textContent = '🔥 ' + current + ' 天连续！';
+    if (progress < 1) {
+      requestAnimationFrame(tick);
+    } else {
+      numEl.textContent = '🔥 ' + target + ' 天连续！';
+    }
+  }
+
+  void numEl.offsetWidth; // force reflow
+  popup.classList.add('show');
+  numEl.style.opacity = '1';
+  numEl.style.transform = 'scale(1)';
+  numEl.style.transition = 'transform 0.5s cubic-bezier(.22,1,.36,1), opacity 0.3s';
+  requestAnimationFrame(tick);
+
+  // 如果是第一天
+  if (streak <= 1) {
+    numEl.textContent = '👊 重新出发！';
+    labelEl.textContent = '今天就是最好的开始';
+  } else {
+    labelEl.textContent = isMilestone ? '🏅 解锁新成就！' : getNextBadge(streak) ? '还差 ' + (getNextBadge(streak).days - streak) + ' 天解锁 ' + getNextBadge(streak).icon : '';
+  }
+
+  // 自动隐藏
+  setTimeout(() => { popup.classList.remove('show'); }, 2500);
+}
+
+function showEncourageText(streak, isMilestone) {
+  const el = document.getElementById('encourageText');
+  if (!el) return;
+  el.classList.remove('show');
+  el.textContent = pickEncourage(streak, isMilestone);
+  void el.offsetWidth;
+  el.classList.add('show');
+  setTimeout(() => { el.classList.remove('show'); }, 3000);
+}
+
+function showBadgeModal(badge) {
+  const modal = document.getElementById('badgeModal');
+  if (!modal) return;
+  document.getElementById('badgeBig').textContent = badge.icon;
+  document.getElementById('badgeName').textContent = badge.name;
+  document.getElementById('badgeName').style.color = badge.color;
+  document.getElementById('badgeDesc').textContent = badge.desc;
+  modal.classList.add('show');
+}
+
+function closeBadgeModal() {
+  document.getElementById('badgeModal').classList.remove('show');
+}
+
+// ── 每日打卡 ──
+// 根据动作完成情况更新打卡按钮状态
+function updateCheckinBtnState(doneCount, totalCount) {
+  const btn = $('#checkinBtn');
+  const hint = $('#checkinHint');
+  if (!btn) return;
+  if (isTodayCheckedIn()) return; // 已打卡不处理
+  if (doneCount > 0 || totalCount > 0) {
+    btn.disabled = false;
+    btn.style.animation = 'pulse 2s infinite';
+    if (hint) hint.style.display = 'none';
+  } else {
+    btn.disabled = true;
+    btn.style.animation = 'none';
+    if (hint) hint.style.display = '';
+  }
+}
+
+function performCheckin() {
+  if (isTodayCheckedIn()) return;
+  const ds = todayStr();
+  localStorage.setItem(CHECKIN_KEY_PREFIX + ds, String(Date.now()));
+
+  // 更新最长连续纪录（打卡后的连续天数）
+  const streak = getCurrentStreak();
+  updateLongestStreak(streak);
+
+  // 检测里程碑
+  const newBadges = checkNewBadges(streak);
+  const isMilestone = newBadges.length > 0;
+
+  // 更新 UI
+  const cd = getTodayCycleDay();
+  renderHeader(cd ? cd.muscles[0] : 'back');
+  renderHeatmap();
+  renderCycleBar();
+  renderTodayWorkout(getTodayCycleDayIndex());
+
+  // 庆祝动画
+  launchConfetti();
+  const badgeColor = isMilestone ? newBadges[0].color : '#ff6b35';
+  setTimeout(() => showStreakPopup(streak, isMilestone, badgeColor), 300);
+  setTimeout(() => showEncourageText(streak, isMilestone), 1000);
+
+  // 里程碑弹窗
+  if (isMilestone) {
+    setTimeout(() => showBadgeModal(newBadges[0]), 1800);
+  }
+
+  // 打卡后引导分享日签
+  setTimeout(() => {
+    showToast('📸 点击"日签"按钮，分享今天的训练成果！');
+  }, 3500);
+}
+
+// ── 徽章墙 UI ──
+function renderBadgeWall() {
+  const earned = getEarnedBadges();
+  const streak = getCurrentStreak();
+  let h = '<div class="badge-wall">';
+  for (const b of BADGES) {
+    const record = earned.find(e => e.id === b.id);
+    const earned_ = !!record;
+    h += '<div class="badge-icon ' + (earned_ ? 'earned' : 'locked') + '"';
+    if (earned_) {
+      h += ' onclick="showBadgeDetail(\'' + b.id + '\')"';
+      h += '><span>' + b.icon + '</span>';
+      h += '<span class="badge-tooltip">' + b.name + '<br>' + record.unlockedAt + ' 解锁</span>';
+    } else {
+      h += '><span style="font-size:20px;">' + b.icon + '</span>';
+      h += '<span class="badge-tooltip">' + b.name + '<br>连续 ' + b.days + ' 天解锁</span>';
+    }
+    h += '</div>';
+  }
+  h += '</div>';
+  return h;
+}
+
+function showBadgeDetail(badgeId) {
+  const b = BADGES.find(x => x.id === badgeId);
+  if (!b) return;
+  document.getElementById('badgeBig').textContent = b.icon;
+  document.getElementById('badgeName').textContent = b.name;
+  document.getElementById('badgeName').style.color = b.color;
+  document.getElementById('badgeDesc').textContent = b.desc;
+  document.getElementById('badgeModal').classList.add('show');
 }
 
 // 撤销机制
@@ -759,6 +1178,18 @@ function getEffectivePlan(dayIndex) {
   return ids.length > 0 ? ids : EXERCISES.filter(e => cd.muscles.includes(e.muscle)).slice(0, 5).map(e => e.id);
 }
 
+// 获取今日训练动作列表（含当天是否有训练的判断）
+function getTodayExercises() {
+  const idx = getTodayCycleDayIndex();
+  if (idx < 0) return [];
+  return getEffectivePlan(idx).map(id => EXERCISES.find(e => e.id === id)).filter(Boolean);
+}
+
+// 分享日签（Phase 3 实现，此处占位）
+function shareCheckinCard() {
+  showToast('📸 日签功能即将上线，敬请期待！');
+}
+
 // 兼容旧 MOTIVATIONS 查询
 function getMotivation(muscle) {
   const cd = getTodayCycleDay();
@@ -832,6 +1263,34 @@ function renderHeader(muscle) {
   const wd = ['日','一','二','三','四','五','六'];
   $('#todayDate').textContent = `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 星期${wd[now.getDay()]}`;
   const isSkipped = muscle === 'skipped';
+  const checkedIn = isTodayCheckedIn();
+
+  // 打卡按钮状态
+  const checkinBtn = $('#checkinBtn');
+  const checkinHint = $('#checkinHint');
+  const headerShareBtns = $('#headerShareBtns');
+  if (isSkipped) {
+    checkinBtn.style.display = 'none';
+    if (checkinHint) checkinHint.style.display = 'none';
+    headerShareBtns.style.display = 'none';
+  } else if (checkedIn) {
+    checkinBtn.style.display = '';
+    checkinBtn.className = 'checkin-btn checked';
+    checkinBtn.textContent = '今日已打卡';
+    checkinBtn.disabled = true;
+    if (checkinHint) checkinHint.style.display = 'none';
+    headerShareBtns.style.display = '';
+  } else {
+    checkinBtn.style.display = '';
+    checkinBtn.className = 'checkin-btn';
+    checkinBtn.textContent = '🔥 今日打卡';
+    // 初始禁用，等动作勾选后启用
+    const exs = getTodayExercises();
+    checkinBtn.disabled = exs.length === 0;
+    if (checkinHint) checkinHint.style.display = exs.length === 0 ? '' : 'none';
+    headerShareBtns.style.display = 'none';
+  }
+
   if (isSkipped) {
     $('#customPlanBtn').style.display = 'none';
     $('#skipBtn').style.display = 'none';
@@ -848,17 +1307,29 @@ function renderCycleBar() {
   const today = new Date(); today.setHours(0,0,0,0);
   const cycle = getCycle();
   const cycleLen = cycle.length;
+  const skipSet = new Set(getSkipDates());
+  const checkinSet = getCheckinSet();
   // 生成周期描述文字
   const cycleDesc = cycle.map(d => d.name).join('→');
   let h = `<h3>📅 训练周期（${cycleLen}日循环：${cycleDesc}）</h3><div class="cycle-days">`;
   for (let o = -2; o <= 2; o++) {
     const d = new Date(today); d.setDate(d.getDate()+o);
+    const ds = formatLocalDate(d);
     const cd = getCycleDayForDate(d);
     const cssCls = cd ? cd.muscles[0] : 'skipped';
     const emoji = cd ? compactEmoji(cd, 2) : '⏭';
     const label = cd ? cd.name : '跳过';
     const labelClr = cd ? getDayLabelColor(cd) : '';
-    h += `<div class="cycle-day ${cd?'':'skipped'}${o===0?' today':''}"><span class="cyc-date">${d.getMonth()+1}/${d.getDate()}</span><span class="cyc-emoji">${emoji}</span><span class="cyc-label" style="color:${labelClr}">${label}</span></div>`;
+    // 打卡圆点
+    let dotHtml = '';
+    if (skipSet.has(ds)) {
+      dotHtml = '<span class="cyc-dot skipped-dot"></span>';
+    } else if (checkinSet.has(ds)) {
+      dotHtml = '<span class="cyc-dot done"></span>';
+    } else if (d <= today) {
+      dotHtml = '<span class="cyc-dot undone"></span>';
+    }
+    h += `<div class="cycle-day ${cd?'':'skipped'}${o===0?' today':''}"><span class="cyc-date">${d.getMonth()+1}/${d.getDate()}${dotHtml}</span><span class="cyc-emoji">${emoji}</span><span class="cyc-label" style="color:${labelClr}">${label}</span></div>`;
   }
   h += '</div>';
   $('#cycleBar').innerHTML = h;
@@ -887,14 +1358,28 @@ function renderHeatmap() {
     streak++;
     check.setDate(check.getDate() - 1);
   }
+  const longest = getLongestStreak();
 
   // ── 统计行 ──
   let h = '<div class="heatmap-stats">';
   h += `<div class="heatmap-stat"><div class="stat-num train">${trainDays}</div><div class="stat-label">🏋️ 训练天数</div></div>`;
   h += `<div class="heatmap-stat"><div class="stat-num skip">${skipDays}</div><div class="stat-label">⏭ 跳过天数</div></div>`;
   h += `<div class="heatmap-stat"><div class="stat-num streak">${streak}</div><div class="stat-label">🔥 连续训练</div></div>`;
-  h += `<button onclick="shareHeatmap()" style="margin-left:8px;padding:4px 12px;background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:14px;cursor:pointer;font-size:12px;font-family:var(--font);align-self:center;" title="导出热力图为图片">📤 分享</button>`;
+  h += `<div class="heatmap-stat"><div class="stat-num record">${longest}</div><div class="stat-label">🏆 最长纪录</div></div>`;
   h += '</div>';
+  h += '<div class="share-btn-group">';
+  h += '<button class="share-btn-sm" onclick="shareHeatmap()">📤 热力图</button>';
+  h += '<button class="share-btn-sm" onclick="shareCheckinCard()">📸 日签</button>';
+  h += `<button class="share-btn-sm" onclick="shareHeatmap()" style="display:none;" id="weeklyReportBtn">📊 周报</button>`;
+  h += `<button class="share-btn-sm" onclick="shareHeatmap()" style="display:none;" id="monthlyReportBtn">📊 月报</button>`;
+  h += `<button class="share-btn-sm" onclick="shareHeatmap()" style="display:none;" id="yearlyReportBtn">📊 年报</button>`;
+  h += '</div>';
+  // 下一个里程碑提示
+  const nextBadge = getNextBadge(getCurrentStreak());
+  if (nextBadge) {
+    const remainDays = nextBadge.days - getCurrentStreak();
+    h += `<div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:4px;">还差 <span style="color:${nextBadge.color};font-weight:600;">${remainDays}</span> 天解锁 ${nextBadge.icon} ${nextBadge.name}</div>`;
+  }
 
   // ── 格子图（GitHub 风格：从年初到现在，全量展示） ──
   // 从 start 年 1 月 1 日所在周的周一开始
@@ -1013,6 +1498,9 @@ function renderHeatmap() {
   }
   h += '</div>';
 
+  // 徽章墙
+  h += renderBadgeWall();
+
   $('#heatmapSection').innerHTML = h;
 }
 
@@ -1041,6 +1529,9 @@ function renderTodayWorkout(dayIndex) {
   }).join('');
   $('#todayList').innerHTML = h;
   $('#todaySectionTitle').textContent = `📋 今日训练（${doneCount}/${exs.length}）`;
+
+  // 更新打卡按钮状态
+  updateCheckinBtnState(doneCount, exs.length);
 }
 
 function renderCardioDay() {
