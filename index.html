@@ -952,8 +952,10 @@ function performCheckin() {
   // 打卡：记录打卡时间
   localStorage.setItem(checkinKey, String(Date.now()));
 
-  // 一键全勾选今天所有动作
-  const exs = getTodayExercises();
+  // 一键全勾选：有氧替换日勾有氧动作，否则勾今日计划动作
+  const exs = isDateCardio(ds)
+    ? getEffectivePlan('cardio').map(id => EXERCISES.find(e => e.id === id)).filter(Boolean)
+    : getTodayExercises();
   if (exs.length > 0) {
     const allIds = exs.map(e => e.id);
     localStorage.setItem(doneKey, JSON.stringify(allIds));
@@ -1228,10 +1230,12 @@ function getCycleDayIndexForDate(date) {
   if (isDateSkipped(ds)) return -1;
   const start = getStartDate();
   const skipSet = new Set(getSkipDates());
+  const cardioSet = new Set(getCardioDates()); // 有氧替换日也顺延计划
   let count = 0;
   const d = new Date(start);
   while (d <= date) {
-    if (!skipSet.has(formatLocalDate(d))) count++;
+    const cds = formatLocalDate(d);
+    if (!skipSet.has(cds) && !cardioSet.has(cds)) count++;
     d.setDate(d.getDate() + 1);
   }
   const idx = count - 1;
@@ -1649,19 +1653,23 @@ function renderSkippedDay() {
 
 function renderHeader(muscle) {
   const h = $('#header');
-  const cd = getTodayCycleDay();
-  const cssMuscle = cd ? cd.muscles[0] : 'cardio';
+  const isTodayCardioReplacement = isDateCardio(todayStr()); // 有氧替换日
+  const cd = isTodayCardioReplacement ? null : getTodayCycleDay();
+  const cssMuscle = isTodayCardioReplacement ? 'cardio' : (cd ? cd.muscles[0] : 'cardio');
   h.className = 'header ' + (muscle === 'skipped' ? 'cardio' : cssMuscle);
-  const names = {...getCycleDayNames(), skipped:'已跳过'};
-  const skippedMots = {skipped:'今天休息，训练计划已整体后移'};
-  const dem = cd ? cd.emoji : '⏭';
+  const dem = isTodayCardioReplacement ? '🫀' : (cd ? cd.emoji : '⏭');
   $('#dayEmoji').textContent = dem;
-  // 多图标时缩小字号
   const emLen = Array.from(dem).length;
   $('#dayEmoji').style.fontSize = emLen > 4 ? '28px' : emLen > 2 ? '38px' : '';
-  $('#dayLabel').textContent = cd ? cd.name : (muscle === 'skipped' ? '已跳过' : getCycleDayName(muscle));
-  $('#dayTitle').textContent = cd ? cd.name : (muscle === 'skipped' ? '已跳过' : getCycleDayName(muscle));
-  $('#motivation').textContent = (cd && cd.motivation) ? cd.motivation : '今天休息，训练计划已整体后移';
+  if (isTodayCardioReplacement) {
+    $('#dayLabel').textContent = '有氧日';
+    $('#dayTitle').textContent = '有氧替换';
+    $('#motivation').textContent = '计划有变，来一场酣畅淋漓的有氧吧！';
+  } else {
+    $('#dayLabel').textContent = cd ? cd.name : (muscle === 'skipped' ? '已跳过' : getCycleDayName(muscle));
+    $('#dayTitle').textContent = cd ? cd.name : (muscle === 'skipped' ? '已跳过' : getCycleDayName(muscle));
+    $('#motivation').textContent = (cd && cd.motivation) ? cd.motivation : '今天休息，训练计划已整体后移';
+  }
   const now = new Date();
   const wd = ['日','一','二','三','四','五','六'];
   $('#todayDate').textContent = `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 星期${wd[now.getDay()]}`;
@@ -1913,6 +1921,11 @@ function renderHeatmap() {
 }
 
 function renderTodayWorkout(dayIndex) {
+  // 有氧替换日：显示有氧内容，原计划已顺延
+  if (isDateCardio(todayStr())) {
+    renderCardioDay();
+    return;
+  }
   $('#cardioSection').style.display = 'none';
   $('#todaySection').style.display = 'block';
   const planIds = getEffectivePlan(dayIndex);
@@ -1948,17 +1961,27 @@ function renderCardioDay() {
   const planIds = getEffectivePlan('cardio');
   const exs = planIds.map(id => EXERCISES.find(e => e.id === id)).filter(Boolean);
   let h = '<div class="cardio-day-content" style="margin-bottom:16px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;">';
-  h += '<h4 style="color:var(--cardio);margin-bottom:8px;">📊 有氧日燃脂指南</h4>';
+  h += '<h4 style="color:var(--cardio);margin-bottom:8px;">🫀 有氧日（原计划已顺延至明天）</h4>';
   h += '<p style="color:var(--text-secondary);font-size:13px;line-height:1.7;margin-bottom:4px;">最大心率 ≈ 220-年龄 &nbsp;|&nbsp; 燃脂区 = 最大心率×60-70%（约 120-140 次/分钟）</p>';
   h += '<p style="color:var(--text-muted);font-size:12px;">💡 快走而非慢跑——保持能聊天但不能唱歌的强度，燃脂效率最高</p>';
   h += '</div>';
   if (exs.length === 0) {
     h += '<p style="color:var(--text-muted);text-align:center;padding:20px;">暂无动作，点击"📝 自定义训练计划"添加</p>';
   } else {
-    h += exs.map((ex,i) => makeCard(ex,i)).join('');
+    h += '<div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:' + Math.round(exs.filter(e => isDone(e.id)).length/exs.length*100) + '%"></div></div>';
+    h += exs.map((ex,i) => {
+      const done = isDone(ex.id);
+      let card = makeCard(ex,i);
+      const checkHtml = '<div class="exercise-done-check' + (done ? ' checked' : '') + '" onclick="event.stopPropagation();toggleDone(\'' + ex.id + '\')"></div>';
+      card = card.replace('<div class="card-index">', checkHtml + '<div class="card-index">');
+      if (done) card = card.replace('class="exercise-card"', 'class="exercise-card done"');
+      return card;
+    }).join('');
   }
   $('#todayList').innerHTML = h;
   $('#todaySectionTitle').textContent = `🏃 今日训练（${exs.length} 个动作）`;
+  const doneCount = exs.filter(e => isDone(e.id)).length;
+  updateCheckinBtnState(doneCount, exs.length);
 }
 
 function makeCard(ex, index) {
