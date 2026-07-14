@@ -148,6 +148,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
 .cyc-dot.done { background: var(--abs); }
 .cyc-dot.undone { background: var(--border); }
 .cyc-dot.skipped-dot { background: var(--danger); }
+.cyc-dot.cardio-dot { background: var(--cardio); }
 
 .cycle-bar { background: var(--bg-card); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 20px; border: 1px solid var(--border); }
 .cycle-bar h3 { font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 12px; text-align: center; }
@@ -537,6 +538,7 @@ function compactEmoji(cd, max) {
 // ============================================================================
 const STORAGE_KEY = 'ft_start_date';
 const SKIP_KEY = 'ft_skip_dates';
+const CARDIO_KEY = 'ft_cardio_dates';
 const CUSTOM_PLAN_PREFIX = 'ft_custom_';
 
 // 日期工具：全部使用本地时间，避免 UTC 时区偏差（中国 UTC+8）
@@ -556,6 +558,13 @@ function getSkipDates() {
 }
 function isDateSkipped(dateStr) { return getSkipDates().includes(dateStr); }
 function isTodaySkipped() { return isDateSkipped(todayStr()); }
+
+// 有氧替换日期（计划变更：当天不做原计划，改为做有氧）
+function getCardioDates() {
+  try { const raw = localStorage.getItem(CARDIO_KEY); return raw ? JSON.parse(raw) : []; } catch(e) { return []; }
+}
+function isDateCardio(dateStr) { return getCardioDates().includes(dateStr); }
+function isTodayCardio() { return isDateCardio(todayStr()); }
 
 // 计算从起始日到今天之间，有多少个非跳过日（有效训练日）
 function getDaysDiff() {
@@ -629,12 +638,14 @@ function getCurrentStreak() {
   const start = getStartDate();
   const today = new Date(); today.setHours(0,0,0,0);
   const skipSet = new Set(getSkipDates());
+  const cardioSet = new Set(getCardioDates());
   const checkinSet = getCheckinSet();
   let streak = 0;
   const check = new Date(today);
   while (check >= start) {
     const ds = formatLocalDate(check);
-    if (skipSet.has(ds)) break; // 跳过日期也断连续
+    if (skipSet.has(ds)) break; // 跳过日期断连续
+    if (cardioSet.has(ds)) { streak++; check.setDate(check.getDate() - 1); continue; } // 有氧替换不断连续
     if (!checkinSet.has(ds)) break; // 未打卡则断
     streak++;
     check.setDate(check.getDate() - 1);
@@ -1312,13 +1323,13 @@ function shareWeeklyReport() {
   const mondayOffset = dow === 0 ? -6 : 1 - dow;
   const monday = new Date(today); monday.setDate(today.getDate() + mondayOffset);
   const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
-  const skipSet = new Set(getSkipDates()); const checkinSet = getCheckinSet();
+  const skipSet = new Set(getSkipDates()); const cardioSetW2 = new Set(getCardioDates()); const checkinSet = getCheckinSet();
   let trainDays = 0, skipDays = 0; const muscleCount = {};
   const d = new Date(monday);
   while (d <= sunday) {
     const ds = formatLocalDate(d); const cd = getCycleDayForDate(d);
     if (skipSet.has(ds)) skipDays++;
-    else if (checkinSet.has(ds)) { trainDays++; if (cd) for (const m of cd.muscles) muscleCount[m] = (muscleCount[m]||0)+1; }
+    else if (checkinSet.has(ds) || cardioSetW2.has(ds)) { trainDays++; if (cd) for (const m of cd.muscles) muscleCount[m] = (muscleCount[m]||0)+1; }
     d.setDate(d.getDate()+1);
   }
   const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
@@ -1350,7 +1361,9 @@ function shareWeeklyReport() {
     const bx=20*S+i*barSlotW; const dd=new Date(monday); dd.setDate(monday.getDate()+i);
     const ds=formatLocalDate(dd);
     let barColor='#3a3d47';
+    const cardioSetW = new Set(getCardioDates());
     if (skipSet.has(ds)) barColor='rgba(232,93,117,0.5)';
+    else if (cardioSetW.has(ds)) barColor='#60a5fa';
     else if (checkinSet.has(ds)) barColor='#22c55e';
     else if (dd>today) barColor='rgba(255,255,255,0.04)';
     ctx.fillStyle=barColor; ctx.beginPath(); ctx.roundRect(bx+4*S,barAreaY+barAreaH-barMaxH-2*S,barSlotW-8*S,barMaxH,3*S); ctx.fill();
@@ -1390,11 +1403,11 @@ function shareMonthlyReport() {
   const S=3,W=400*S,H=225*S; const today=new Date(); today.setHours(0,0,0,0);
   const monthStart=new Date(today.getFullYear(),today.getMonth(),1);
   const totalDays=Math.min(new Date(today.getFullYear(),today.getMonth()+1,0).getDate(),today.getDate());
-  const skipSet=new Set(getSkipDates()); const checkinSet=getCheckinSet();
+  const skipSet=new Set(getSkipDates()); const cardioSetM=new Set(getCardioDates()); const checkinSet=getCheckinSet();
   let trainDays=0,skipDays=0; const muscleCount={};
   const d=new Date(monthStart);
   while(d<=today){const ds=formatLocalDate(d);
-    if(skipSet.has(ds))skipDays++;else if(checkinSet.has(ds)){trainDays++;const cd=getCycleDayForDate(d);if(cd)for(const m of cd.muscles)muscleCount[m]=(muscleCount[m]||0)+1;}
+    if(skipSet.has(ds))skipDays++;else if(checkinSet.has(ds)||cardioSetM.has(ds)){trainDays++;const cd=getCycleDayForDate(d);if(cd)for(const m of cd.muscles)muscleCount[m]=(muscleCount[m]||0)+1;}
     d.setDate(d.getDate()+1);}
   const canvas=document.createElement('canvas');canvas.width=W;canvas.height=H;const ctx=canvas.getContext('2d');
   ctx.fillStyle='#1e2127';ctx.fillRect(0,0,W,H);
@@ -1413,7 +1426,8 @@ function shareMonthlyReport() {
   const mc=5*S,mg=1*S,mx0=20*S,my0=120*S;const firstDow=monthStart.getDay();
   let miniD=new Date(monthStart),miniCol=firstDow===0?6:firstDow-1,miniRow=0;
   for(let i=0;i<totalDays;i++){const ds=formatLocalDate(miniD);let clr='rgba(255,255,255,0.04)';
-    if(skipSet.has(ds))clr='rgba(232,93,117,0.4)';else if(checkinSet.has(ds)){const cd=getCycleDayForDate(miniD);clr=cd?(cd.colors?.[0]||cd.color||'#333'):'#333';}
+    const cardioSetMs=new Set(getCardioDates());
+    if(skipSet.has(ds))clr='rgba(232,93,117,0.4)';else if(cardioSetMs.has(ds))clr='#60a5fa';else if(checkinSet.has(ds)){const cd=getCycleDayForDate(miniD);clr=cd?(cd.colors?.[0]||cd.color||'#333'):'#333';}
     ctx.fillStyle=clr;ctx.beginPath();ctx.roundRect(mx0+miniCol*(mc+mg),my0+miniRow*(mc+mg),mc,mg,1*S);ctx.fill();
     miniD.setDate(miniD.getDate()+1);miniCol++;if(miniCol>=7){miniCol=0;miniRow++;}}
   const totalM=Object.values(muscleCount).reduce((a,b)=>a+b,0);let mY=162*S;
@@ -1638,18 +1652,20 @@ function renderHeatmap() {
   function getDayEmoji(muscle) { const cd = getCycle().find(d => d.muscles.includes(muscle)); return cd ? cd.emoji : ''; }
 
   // ── 统计 ──
+  const cardioSet3 = new Set(getCardioDates());
   let trainDays = 0, skipDays = 0;
   const d0 = new Date(start);
   while (d0 <= today) {
     const ds = formatLocalDate(d0);
     if (skipSet.has(ds)) skipDays++;
-    else trainDays++;
+    else trainDays++; // 含正常训练日+有氧替换日
     d0.setDate(d0.getDate() + 1);
   }
   let streak = 0;
   const check = new Date(today);
   while (check >= start) {
-    if (skipSet.has(formatLocalDate(check))) break;
+    const cds = formatLocalDate(check);
+    if (skipSet.has(cds)) break;
     streak++;
     check.setDate(check.getDate() - 1);
   }
@@ -1762,6 +1778,9 @@ function renderHeatmap() {
       } else if (skipSet.has(ds)) {
         cls = 'skip-cell';
         tip = `${d.getMonth()+1}/${d.getDate()} ⏭ 跳过`;
+      } else if (cardioSet3.has(ds)) {
+        cls = 'cardio-cell';
+        tip = `${d.getMonth()+1}/${d.getDate()} 🫀 有氧日`;
       } else {
         const cd = getCycleDayForDate(d);
         const label = cd ? cd.name : '';
@@ -1772,7 +1791,7 @@ function renderHeatmap() {
         style = `background:${bg};`;
       }
       const clickable = !isBeforeStart && !isAfterToday;
-      h += `<div class="heatmap-cell ${cls}${clickable?' clickable-cell':''}" style="${style||''}"${tip ? ` data-tip="${tip}"` : ''}${clickable ? ` onclick="toggleSkipDate('${ds}')"` : ''}></div>`;
+      h += `<div class="heatmap-cell ${cls}${clickable?' clickable-cell':''}" style="${style||''}"${tip ? ` data-tip="${tip}"` : ''}${clickable ? ` onclick="toggleSkipDate('${ds}')" title="点击切换：正常→跳过→有氧→正常"` : ''}></div>`;
     }
     h += '</div>';
   }
@@ -1786,6 +1805,7 @@ function renderHeatmap() {
     {color:'var(--shoulder)', label:'肩日'},
     {color:'var(--abs)', label:'腹日'},
     {color:'var(--cardio)', label:'有氧'},
+    {color:'var(--cardio)', label:'🫀有氧替换'},
     {color:'rgba(232,93,117,0.4)', label:'跳过'},
   ];
   for (const item of legendItems) {
@@ -2011,12 +2031,44 @@ function removeSkipDate(dateStr) {
 }
 
 function toggleSkipDate(dateStr) {
+  // 三态循环：正常 → 跳过 → 有氧替换 → 正常
   const skips = getSkipDates();
+  const cardios = getCardioDates();
   if (skips.includes(dateStr)) {
+    // 当前是跳过 → 转为有氧替换
     removeSkipDate(dateStr);
+    addCardioDate(dateStr);
+  } else if (cardios.includes(dateStr)) {
+    // 当前是有氧替换 → 恢复为正常
+    removeCardioDate(dateStr);
   } else {
+    // 当前是正常 → 跳过
     addSkipDate(dateStr);
   }
+}
+
+function addCardioDate(dateStr) {
+  if (!dateStr) return;
+  const d = parseLocalDate(dateStr);
+  if (isNaN(d)) return;
+  const start = getStartDate();
+  if (d < start) { showToast('⚠ 不能标记起始日之前的日期'); return; }
+  const today = new Date(); today.setHours(0,0,0,0);
+  if (d > today) { showToast('⚠ 不能标记未来的日期'); return; }
+  const cardios = getCardioDates();
+  if (cardios.includes(dateStr)) { showToast('⚠ 该日期已标记为有氧日'); return; }
+  snapshotUndo(() => { localStorage.setItem(CARDIO_KEY, JSON.stringify(cardios)); }, '添加有氧日 ' + dateStr);
+  localStorage.setItem(CARDIO_KEY, JSON.stringify([...cardios, dateStr]));
+  renderAll();
+  showToast('🫀 已标记有氧日：' + dateStr);
+}
+
+function removeCardioDate(dateStr) {
+  const cardios = getCardioDates();
+  snapshotUndo(() => { localStorage.setItem(CARDIO_KEY, JSON.stringify(cardios)); }, '删除有氧日 ' + dateStr);
+  localStorage.setItem(CARDIO_KEY, JSON.stringify(cardios.filter(s => s !== dateStr)));
+  renderAll();
+  showToast('✅ 已恢复为正常训练日：' + dateStr);
 }
 
 $('#addSkipBtn').addEventListener('click', () => {
@@ -2271,7 +2323,8 @@ function shareHeatmap() {
   const cycle = getCycle();
   let trainDays = 0, skipDays = 0;
   const d0 = new Date(start);
-  while (d0 <= today) { const ds = formatLocalDate(d0); skipSet.has(ds) ? skipDays++ : trainDays++; d0.setDate(d0.getDate() + 1); }
+  const cardioSetYr = new Set(getCardioDates());
+  while (d0 <= today) { const ds = formatLocalDate(d0); if (skipSet.has(ds)) skipDays++; else trainDays++; d0.setDate(d0.getDate() + 1); }
   let streak = 0; const check = new Date(today);
   while (check >= start) { if (skipSet.has(formatLocalDate(check))) break; streak++; check.setDate(check.getDate() - 1); }
   const yearStart = new Date(start.getFullYear(), 0, 1);
@@ -2337,6 +2390,7 @@ function shareHeatmap() {
       const x = lp + ci * (cs + g); const y = tp + ri * (cs + g);
       if (d < start || d > today) { ctx.fillStyle = 'rgba(255,255,255,0.04)'; }
       else if (skipSet.has(ds)) { ctx.fillStyle = 'rgba(232,93,117,0.4)'; }
+      else if (cardioSetYr.has(ds)) { ctx.fillStyle = '#60a5fa'; }
       else { const idx = getCycleDayIndexForDate(d); const cd = idx >= 0 ? cycle[idx] : null;
       if (cd && cd.colors && cd.colors.length > 1) {
         const grd = ctx.createLinearGradient(x, y, x + cs, y + cs);
