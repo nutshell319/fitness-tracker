@@ -1677,13 +1677,13 @@ function renderHeatmap() {
   }
 
   // ── 格子图（GitHub 风格：从年初到现在，全量展示） ──
-  // 从 start 年 1 月 1 日所在周的周一开始
+  // 从 start 年 1 月 1 日所在周的周日开始（week[0]=周日，与 JS getDay() 对齐）
   const yearStart = new Date(start.getFullYear(), 0, 1);
   const ysDow = yearStart.getDay();
   const gridStart = new Date(yearStart);
-  gridStart.setDate(gridStart.getDate() + (ysDow === 0 ? -6 : 1 - ysDow));
+  gridStart.setDate(gridStart.getDate() - ysDow); // 回退到周日，使 week[0] 与 JS getDay() 对齐
 
-  // 到本月最后一天所在周的周日（完整显示当前月份）
+  // 到本月最后一天所在周的周六（完整显示当前月份）
   const monthLast = new Date(today.getFullYear(), today.getMonth() + 1, 0); // 本月最后一天
   const mlDow = monthLast.getDay();
   const gridEnd = new Date(monthLast);
@@ -1702,7 +1702,7 @@ function renderHeatmap() {
       week.push(new Date(d));
     }
     // 检查本周是否包含某月 1 号
-    const midDate = week[3]; // 周四 ≈ 周的代表日
+    const midDate = week[3]; // 周三 ≈ 周的代表日（week[0]=周日）
     if (midDate.getDate() <= 7) {
       monthOffsets.push({col: colIdx, label: (midDate.getMonth()+1)+'月'});
     }
@@ -2277,7 +2277,7 @@ function shareHeatmap() {
   const yearStart = new Date(start.getFullYear(), 0, 1);
   const ysDow = yearStart.getDay();
   const gridStart = new Date(yearStart);
-  gridStart.setDate(gridStart.getDate() + (ysDow === 0 ? -6 : 1 - ysDow));
+  gridStart.setDate(gridStart.getDate() - ysDow); // 回退到周日，使 week[0] 与 JS getDay() 对齐
   const monthLast = new Date(today.getFullYear(), today.getMonth() + 1, 0);
   const mlDow = monthLast.getDay();
   const gridEnd = new Date(monthLast);
