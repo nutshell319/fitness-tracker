@@ -678,7 +678,7 @@ function getCurrentStreak() {
     const ds = formatLocalDate(check);
     if (skipSet.has(ds)) break; // 跳过日期断连续
     if (cardioSet.has(ds)) { streak++; check.setDate(check.getDate() - 1); continue; } // 有氧替换不断连续
-    if (!checkinSet.has(ds)) break; // 未打卡则断
+    if (!checkinSet.has(ds) && localStorage.getItem('ft_checkin_'+ds) === null) break; // 未打卡则断
     streak++;
     check.setDate(check.getDate() - 1);
   }
@@ -1476,7 +1476,7 @@ function shareWeeklyReport() {
     const cardioSetW = new Set(getCardioDates());
     if (skipSet.has(ds)) barColor='rgba(232,93,117,0.5)';
     else if (cardioSetW.has(ds)) barColor='#60a5fa';
-    else if (checkinSet.has(ds)) barColor='#22c55e';
+    else if (checkinSet.has(ds)||localStorage.getItem('ft_checkin_'+ds)!==null) barColor='#22c55e';
     else if (dd>today) barColor='rgba(255,255,255,0.04)';
     ctx.fillStyle=barColor; ctx.beginPath(); ctx.roundRect(bx+4*S,barAreaY+30*S-barMaxH,barSlotW-8*S,barMaxH,3*S); ctx.fill();
     ctx.fillStyle='#6b6864'; ctx.font=(9*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';
@@ -1835,7 +1835,7 @@ function renderCycleBar() {
     let dotHtml = '';
     if (skipSet.has(ds)) {
       dotHtml = '<span class="cyc-dot skipped-dot"></span>';
-    } else if (checkinSet.has(ds)) {
+    } else if (checkinSet.has(ds)||localStorage.getItem('ft_checkin_'+ds)!==null) {
       dotHtml = '<span class="cyc-dot done"></span>';
     } else if (d <= today) {
       dotHtml = '<span class="cyc-dot undone"></span>';
