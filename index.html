@@ -1605,8 +1605,7 @@ function shareYearlyReport() {
     ctx.textAlign='center';ctx.fillText(String(cards[i].num),cx+cardW/2,cardY+28*S);
     ctx.fillStyle='#a09d98';ctx.font=(10*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';ctx.fillText(cards[i].label,cx+cardW/2,cardY+46*S);}
 
-  // Centered yearly heatmap — 根据实际周数计算宽度
-  const mc=5*S,mg=1*S;
+  // 年度热力图 — 格子尺寸随列数自适应，铺满卡片宽度
   let curY=cardY+cardH+18*S;
   ctx.textAlign='left';ctx.fillStyle='#a09d98';ctx.font=(11*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';
   // 第一遍：收集所有格子，确定实际列数
@@ -1617,15 +1616,19 @@ function shareYearlyReport() {
     if(skipSet.has(ds))clr='rgba(232,93,117,0.4)';else if(checkinSet.has(ds)){const cd=getCycleDayForDate(d2);clr=cd?(cd.colors?.[0]||cd.color||'#333'):'#333';}
     cells.push({col,row,clr});if(col>maxCol)maxCol=col;
     d2.setDate(d2.getDate()+1);col++;if(col>=7){col=0;row++;}}}
-  const numCols=maxCol+1,gridW3=numCols*(mc+mg)-mg,mx0Y=(W-gridW3)/2,lastRow=cells.length>0?cells[cells.length-1].row:0;
+  const numCols=maxCol+1,lastRow=cells.length>0?cells[cells.length-1].row:0;
+  // 自适应格子尺寸：填充90%画布宽度
+  const maxGW=W-40*S,cellStep=Math.floor(maxGW/numCols);
+  const mg2=Math.max(1*S,Math.floor(cellStep*0.18)),mc2=cellStep-mg2;
+  const gridW3=numCols*(mc2+mg2)-mg2,mx0Y=(W-gridW3)/2;
   ctx.fillText('年度热力全景',mx0Y,curY); curY+=10*S;
   for(const c of cells){
-    ctx.fillStyle=c.clr;ctx.beginPath();ctx.roundRect(mx0Y+c.col*(mc+mg),curY+c.row*(mc+mg),mc,mc,1*S);ctx.fill();
+    ctx.fillStyle=c.clr;ctx.beginPath();ctx.roundRect(mx0Y+c.col*(mc2+mg2),curY+c.row*(mc2+mg2),mc2,mc2,Math.min(2*S,mc2*0.25));ctx.fill();
   }
 
   // Adaptive muscle distribution
   const totalM=Object.values(muscleCount).reduce((a,b)=>a+b,0);
-  curY=curY+(lastRow+1)*(mc+mg)+18*S;
+  curY=curY+(lastRow+1)*(mc2+mg2)+18*S;
   const mColors={back:'#4ecdc4',chest:'#ff6b35',shoulder:'#f0c040',abs:'#22c55e',legs:'#a78bfa',arms:'#f472b6',cardio:'#60a5fa'};
   const mLabels={back:'背',chest:'胸',shoulder:'肩',abs:'腹',legs:'腿',arms:'手臂',cardio:'有氧'};
   ctx.textAlign='left';ctx.fillStyle='#a09d98';ctx.font=(12*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';
