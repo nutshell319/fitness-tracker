@@ -669,7 +669,8 @@ function isTodayCheckedIn() { return isCheckedIn(todayStr()); }
 
 // ── 统一统计引擎：从 localStorage 直读，所有分享卡片共用 ──
 function computeStats(startDate, endDate) {
-  const trainStart = getStartDate(); // 用户设定的训练起始日
+  const trainStart = getStartDate();
+  const today = new Date(); today.setHours(0,0,0,0);
   const skipRaw = localStorage.getItem('ft_skip_dates');
   const cardioRaw = localStorage.getItem('ft_cardio_dates');
   const skipArr = skipRaw ? JSON.parse(skipRaw) : [];
@@ -683,7 +684,8 @@ function computeStats(startDate, endDate) {
     const ds = formatLocalDate(d);
     const isSkip = skipArr.includes(ds);
     const isCardio = cardioArr.includes(ds);
-    if (d < trainStart) { dailyStatus.push({ds, type:'before'}); } // 训练开始前不计
+    if (d < trainStart) { dailyStatus.push({ds, type:'before'}); }
+    else if (d > today) { dailyStatus.push({ds, type:'future'}); }
     else if (isSkip) { skipDays++; dailyStatus.push({ds, type:'skip'}); }
     else {
       trainDays++; dailyStatus.push({ds, type:isCardio?'cardio':'train'});
@@ -697,6 +699,7 @@ function computeStats(startDate, endDate) {
 
 function computeYearlyStats() {
   const today = new Date(); today.setHours(0,0,0,0);
+  const trainStart = getStartDate();
   const yearStart = new Date(today.getFullYear(), 0, 1);
   const skipRaw = localStorage.getItem('ft_skip_dates');
   const cardioRaw = localStorage.getItem('ft_cardio_dates');
@@ -714,6 +717,7 @@ function computeYearlyStats() {
     const month1st = new Date(d.getFullYear(), mIdx, 1);
     const weekIdx = Math.floor((d.getDate() + month1st.getDay() - 1) / 7);
     if (!monthWeeks[mIdx][weekIdx]) monthWeeks[mIdx][weekIdx] = 0;
+    if (d < trainStart) { d.setDate(d.getDate() + 1); continue; } // 训练开始前全部跳过
     const isSkip = skipArr.includes(ds);
     const isCardio = cardioArr.includes(ds);
     if (isSkip) { skipDays++; }
