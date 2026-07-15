@@ -35,25 +35,73 @@ function loadShareLayout() {
     'planRankedItems',
     'wrapText'
   ]);
+  Object.defineProperty(layout, 'roundedRect', {
+    value: sandbox.roundedRect,
+    enumerable: false
+  });
   return layout;
 }
 
 test('分享布局工具公开所需 API 且定义五种画布尺寸', () => {
   const layout = loadShareLayout();
   const expectedFormats = {
-    daily: [1080, 1440],
-    weekly: [1600, 900],
-    monthly: [1600, 900],
-    yearly: [1080, 1440],
-    heatmap: [1600, 900]
+    daily: [1080, 1440, 72, 252, 118, 26],
+    weekly: [1600, 900, 72, 126, 72, 22],
+    monthly: [1600, 900, 72, 126, 72, 22],
+    yearly: [1080, 1440, 72, 224, 118, 24],
+    heatmap: [1600, 900, 72, 154, 92, 20]
   };
 
   for (const [type, size] of Object.entries(expectedFormats)) {
     const format = layout.getShareFormat(type);
-    assert.deepEqual([format.width, format.height], size);
+    assert.deepEqual([
+      format.width,
+      format.height,
+      format.padding,
+      format.header,
+      format.footer,
+      format.minFont
+    ], size);
     assert.equal(format.type, type);
   }
   assert.throws(() => layout.getShareFormat('unknown'), /Unknown share format/);
+});
+
+test('roundedRect 在没有原生 roundRect 时使用二次曲线回退', () => {
+  const layout = loadShareLayout();
+  const calls = [];
+  const ctx = {
+    moveTo: (...args) => calls.push(['moveTo', args]),
+    lineTo: (...args) => calls.push(['lineTo', args]),
+    quadraticCurveTo: (...args) => calls.push(['quadraticCurveTo', args])
+  };
+
+  assert.doesNotThrow(() => layout.roundedRect(ctx, 10, 20, 100, 60, 8));
+  assert.ok(calls.some(([name]) => name === 'moveTo'));
+  assert.ok(calls.some(([name]) => name === 'lineTo'));
+  assert.ok(calls.some(([name]) => name === 'quadraticCurveTo'));
+});
+
+test('五种分享卡片渲染器均通过 roundedRect 创建圆角路径', () => {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const rendererNames = [
+    'shareCheckinCard',
+    'shareWeeklyReport',
+    'shareMonthlyReport',
+    'shareYearlyReport',
+    'shareHeatmap'
+  ];
+
+  for (const name of rendererNames) {
+    const start = source.indexOf(`function ${name}() {`);
+    assert.notEqual(start, -1, `未找到分享渲染器：${name}`);
+    const nextFunction = source.indexOf('\nfunction ', start + 1);
+    const end = nextFunction === -1 ? source.indexOf('</script>', start) : nextFunction;
+    const body = source.slice(start, end);
+
+    assert.doesNotMatch(body, /ctx\.roundRect\(/, `${name} 仍直接调用 ctx.roundRect`);
+    assert.match(body, /roundedRect\(ctx,/, `${name} 未使用 roundedRect`);
+  }
 });
 
 test('指标网格的所有矩形均位于周报正文安全区域内', () => {

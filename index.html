@@ -1625,7 +1625,7 @@ function shareCheckinCard() {
   glow.addColorStop(0, dayColor + '33'); glow.addColorStop(1, 'transparent');
   ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
   ctx.strokeStyle = '#2a2d36'; ctx.lineWidth = 2*S;
-  ctx.beginPath(); ctx.roundRect(8*S, 8*S, W-16*S, H-16*S, 16*S); ctx.stroke();
+  ctx.beginPath(); roundedRect(ctx, 8*S, 8*S, W-16*S, H-16*S, 16*S); ctx.stroke();
 
   const wd = ['日','一','二','三','四','五','六'];
   const dateStr = today.getFullYear()+'年'+(today.getMonth()+1)+'月'+today.getDate()+'日 星期'+wd[today.getDay()];
@@ -1643,7 +1643,7 @@ function shareCheckinCard() {
   let curY = 228*S;
   ctx.fillStyle = 'rgba(255,255,255,0.03)'; ctx.fillRect(30*S, curY, W-60*S, 50*S);
   ctx.strokeStyle = '#2a2d36'; ctx.lineWidth = 1.5*S;
-  ctx.beginPath(); ctx.roundRect(30*S, curY, W-60*S, 50*S, 8*S); ctx.stroke();
+  ctx.beginPath(); roundedRect(ctx, 30*S, curY, W-60*S, 50*S, 8*S); ctx.stroke();
   ctx.fillStyle = '#a09d98'; ctx.font = (13*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';
   ctx.fillText('"' + motivation + '"', W/2, curY + 28*S);
   curY += 66*S;
@@ -1655,8 +1655,8 @@ function shareCheckinCard() {
   ctx.fillStyle = '#a09d98'; ctx.font = (11*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';
   ctx.textAlign = 'right'; ctx.fillText(Math.round(pct*100) + '%', W-30*S, curY);
   curY += 10*S;
-  ctx.fillStyle = '#121418'; ctx.beginPath(); ctx.roundRect(30*S, curY, W-60*S, 7*S, 4*S); ctx.fill();
-  ctx.fillStyle = '#22c55e'; ctx.beginPath(); ctx.roundRect(30*S, curY, Math.max((W-60*S)*pct, pct>0?8*S:0), 7*S, 4*S); ctx.fill();
+  ctx.fillStyle = '#121418'; ctx.beginPath(); roundedRect(ctx, 30*S, curY, W-60*S, 7*S, 4*S); ctx.fill();
+  ctx.fillStyle = '#22c55e'; ctx.beginPath(); roundedRect(ctx, 30*S, curY, Math.max((W-60*S)*pct, pct>0?8*S:0), 7*S, 4*S); ctx.fill();
   curY += 24*S;
 
   const colW = (W - 80*S) / 2, leftX = 30*S, rightX = 30*S + colW + 20*S;
@@ -1706,7 +1706,7 @@ function shareWeeklyReport() {
   const ctx = canvas.getContext('2d');
   ctx.fillStyle = '#1e2127'; ctx.fillRect(0,0,W,H);
   ctx.strokeStyle = '#2a2d36'; ctx.lineWidth = 2*S;
-  ctx.beginPath(); ctx.roundRect(6*S,6*S,W-12*S,H-12*S,12*S); ctx.stroke();
+  ctx.beginPath(); roundedRect(ctx, 6*S,6*S,W-12*S,H-12*S,12*S); ctx.stroke();
   const rangeStr = (monday.getMonth()+1)+'/'+monday.getDate()+' - '+(sunday.getMonth()+1)+'/'+sunday.getDate();
   ctx.fillStyle = '#e4e2df'; ctx.font = 'bold '+(18*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';
   ctx.textAlign = 'left'; ctx.fillText('📊 训练周报  '+rangeStr, 20*S, 34*S);
@@ -1719,7 +1719,7 @@ function shareWeeklyReport() {
   const cardW=(W-40*S-12*S)/4, cardX0=20*S, cardY=48*S, cardH=44*S;
   for (let i=0;i<cards.length;i++) {
     const cx=cardX0+i*(cardW+4*S);
-    ctx.fillStyle='#121418'; ctx.beginPath(); ctx.roundRect(cx,cardY,cardW,cardH,6*S); ctx.fill();
+    ctx.fillStyle='#121418'; ctx.beginPath(); roundedRect(ctx, cx,cardY,cardW,cardH,6*S); ctx.fill();
     ctx.fillStyle=cards[i].color; ctx.font='bold '+(20*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';
     ctx.textAlign='center'; ctx.fillText(String(cards[i].num),cx+cardW/2,cardY+22*S);
     ctx.fillStyle='#a09d98'; ctx.font=(10*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';
@@ -1741,7 +1741,7 @@ function shareWeeklyReport() {
       else if (st.type==='train') barColor='#22c55e';
     }
     if (dd>today) barColor='rgba(255,255,255,0.04)';
-    ctx.fillStyle=barColor; ctx.beginPath(); ctx.roundRect(bx+4*S,barAreaY+30*S-barMaxH,barSlotW-8*S,barMaxH,3*S); ctx.fill();
+    ctx.fillStyle=barColor; ctx.beginPath(); roundedRect(ctx, bx+4*S,barAreaY+30*S-barMaxH,barSlotW-8*S,barMaxH,3*S); ctx.fill();
     ctx.fillStyle='#6b6864'; ctx.font=(9*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';
     ctx.textAlign='center'; ctx.fillText(dd>today?'':['日','一','二','三','四','五','六'][(monday.getDay()+i)%7],bx+barSlotW/2,barAreaY+42*S);
   }
@@ -1761,7 +1761,7 @@ function shareWeeklyReport() {
     const [m,cnt]=ents[i]; const barW=maxCnt>0?Math.max((cnt/maxCnt)*barFull,14*S):14*S;
     ctx.fillStyle=mColors[m]||'#6b6864'; ctx.font=(12*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';
     ctx.fillText(mLabels[m]||m,20*S,curY+8*S);
-    ctx.fillStyle=mColors[m]||'#6b6864'; ctx.beginPath(); ctx.roundRect(20*S+lW,curY,barW,12*S,4*S); ctx.fill();
+    ctx.fillStyle=mColors[m]||'#6b6864'; ctx.beginPath(); roundedRect(ctx, 20*S+lW,curY,barW,12*S,4*S); ctx.fill();
     ctx.fillStyle='#a09d98'; ctx.fillText(cnt+'次',20*S+lW+barW+6*S,curY+8*S); curY+=barSp;
   }
   curY += 8*S;
@@ -1786,14 +1786,14 @@ function shareMonthlyReport() {
 
   const canvas=document.createElement('canvas');canvas.width=W;canvas.height=H;const ctx=canvas.getContext('2d');
   ctx.fillStyle='#1e2127';ctx.fillRect(0,0,W,H);
-  ctx.strokeStyle='#2a2d36';ctx.lineWidth=2*S;ctx.beginPath();ctx.roundRect(6*S,6*S,W-12*S,H-12*S,12*S);ctx.stroke();
+  ctx.strokeStyle='#2a2d36';ctx.lineWidth=2*S;ctx.beginPath();roundedRect(ctx, 6*S,6*S,W-12*S,H-12*S,12*S);ctx.stroke();
   ctx.fillStyle='#e4e2df';ctx.font='bold '+(18*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';ctx.textAlign='left';
   ctx.fillText('📊 训练月报  '+(today.getMonth()+1)+'月',20*S,34*S);
   const cards=[{num:stats.trainDays,label:'训练天数',color:'#ff6b35'},{num:stats.skipDays,label:'跳过天数',color:'#e85d75'},
     {num:stats.totalDays>0?Math.round(stats.trainDays/stats.totalDays*100):0,label:'出勤率 %',color:'#22c55e'},{num:getLongestStreak(),label:'最长连续',color:'#a78bfa'}];
   const cardW=(W-40*S-12*S)/4,cardX0=20*S,cardY=48*S,cardH=44*S;
   for(let i=0;i<cards.length;i++){const cx=cardX0+i*(cardW+4*S);
-    ctx.fillStyle='#121418';ctx.beginPath();ctx.roundRect(cx,cardY,cardW,cardH,6*S);ctx.fill();
+    ctx.fillStyle='#121418';ctx.beginPath();roundedRect(ctx, cx,cardY,cardW,cardH,6*S);ctx.fill();
     ctx.fillStyle=cards[i].color;ctx.font='bold '+(20*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';
     ctx.textAlign='center';ctx.fillText(String(cards[i].num),cx+cardW/2,cardY+22*S);
     ctx.fillStyle='#a09d98';ctx.font=(10*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';ctx.fillText(cards[i].label,cx+cardW/2,cardY+38*S);}
@@ -1810,7 +1810,7 @@ function shareMonthlyReport() {
     else if(st.type==='skip')clr='rgba(232,93,117,0.4)';
     else if(st.type==='cardio')clr='#60a5fa';
     else if(st.type==='train'){const cd=getCycleDayForDate(miniD);clr=cd?(cd.colors?.[0]||cd.color||'#333'):'#333';}
-    ctx.fillStyle=clr;ctx.beginPath();ctx.roundRect(mx0M+miniCol*(mc+mg),curY+miniRow*(mc+mg),mc,mc,2*S);ctx.fill();
+    ctx.fillStyle=clr;ctx.beginPath();roundedRect(ctx, mx0M+miniCol*(mc+mg),curY+miniRow*(mc+mg),mc,mc,2*S);ctx.fill();
     miniD.setDate(miniD.getDate()+1);miniCol++;if(miniCol>=7){miniCol=0;miniRow++;}
   }
 
@@ -1827,7 +1827,7 @@ function shareMonthlyReport() {
   for(let i=0;i<nShowM;i++){const[m,cnt]=ents[i];const barW=maxCntM>0?Math.max((cnt/maxCntM)*barFullM,14*S):14*S;
     ctx.fillStyle=mColors[m]||'#6b6864';ctx.font=(12*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';
     ctx.fillText(mLabels[m]||m,20*S,curY+8*S);
-    ctx.fillStyle=mColors[m]||'#6b6864';ctx.beginPath();ctx.roundRect(20*S+lWM,curY,barW,12*S,4*S);ctx.fill();
+    ctx.fillStyle=mColors[m]||'#6b6864';ctx.beginPath();roundedRect(ctx, 20*S+lWM,curY,barW,12*S,4*S);ctx.fill();
     ctx.fillStyle='#a09d98';ctx.fillText(cnt+'次',20*S+lWM+barW+6*S,curY+8*S);curY+=barSpM;}
   curY+=10*S;
   ctx.textAlign='center';ctx.fillStyle='#a09d98';ctx.font=(11*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';
@@ -1857,7 +1857,7 @@ function shareYearlyReport() {
     {num:ys.totalD>0?Math.round(ys.trainDays/ys.totalD*100):0,label:'出勤率 %',color:'#22c55e'},{num:getLongestStreak(),label:'最长连续',color:'#a78bfa'}];
   const cardW=(W-40*S-16*S)/4,cardX0=20*S,cardY=90*S,cardH=60*S;
   for(let i=0;i<cards.length;i++){const cx=cardX0+i*(cardW+5*S);
-    ctx.fillStyle='#121418';ctx.beginPath();ctx.roundRect(cx,cardY,cardW,cardH,10*S);ctx.fill();
+    ctx.fillStyle='#121418';ctx.beginPath();roundedRect(ctx, cx,cardY,cardW,cardH,10*S);ctx.fill();
     ctx.fillStyle=cards[i].color;ctx.font='bold '+(30*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';
     ctx.textAlign='center';ctx.fillText(String(cards[i].num),cx+cardW/2,cardY+32*S);
     ctx.fillStyle='#a09d98';ctx.font=(12*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';ctx.fillText(cards[i].label,cx+cardW/2,cardY+52*S);}
@@ -1874,10 +1874,10 @@ function shareYearlyReport() {
     const weeks=ys.monthWeeks[m].filter(w=>w!==undefined);
     const hasTraining=weeks.some(w=>w>0);
     const isFuture=m>today.getMonth();
-    if(isFuture){ctx.fillStyle='rgba(255,255,255,0.03)';ctx.beginPath();ctx.roundRect(x,by0,slotW,blkH,4*S);ctx.fill();}
+    if(isFuture){ctx.fillStyle='rgba(255,255,255,0.03)';ctx.beginPath();roundedRect(ctx, x,by0,slotW,blkH,4*S);ctx.fill();}
     else if(!hasTraining){
-      ctx.fillStyle='rgba(255,255,255,0.04)';ctx.beginPath();ctx.roundRect(x,by0,slotW,blkH,4*S);ctx.fill();
-      ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.lineWidth=1*S;ctx.beginPath();ctx.roundRect(x,by0,slotW,blkH,4*S);ctx.stroke();
+      ctx.fillStyle='rgba(255,255,255,0.04)';ctx.beginPath();roundedRect(ctx, x,by0,slotW,blkH,4*S);ctx.fill();
+      ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.lineWidth=1*S;ctx.beginPath();roundedRect(ctx, x,by0,slotW,blkH,4*S);ctx.stroke();
     }else{
       const nWeeks=weeks.length,wGap=2*S,wSz=Math.floor((slotW-(nWeeks-1)*wGap)/nWeeks);
       const wOffX=x+Math.floor((slotW-(nWeeks*(wSz+wGap)-wGap))/2);
@@ -1885,8 +1885,8 @@ function shareYearlyReport() {
         const wx=wOffX+wi*(wSz+wGap),wDays=weeks[wi]||0;
         const alpha=wDays===0?0.06:0.2+(wDays/globalMaxW)*0.8;
         ctx.fillStyle='rgba(255,107,53,'+alpha.toFixed(3)+')';
-        ctx.beginPath();ctx.roundRect(wx,by0,wSz,blkH,2*S);ctx.fill();
-        if(wDays===0){ctx.strokeStyle='rgba(255,255,255,0.05)';ctx.lineWidth=0.5*S;ctx.beginPath();ctx.roundRect(wx,by0,wSz,blkH,2*S);ctx.stroke();}
+        ctx.beginPath();roundedRect(ctx, wx,by0,wSz,blkH,2*S);ctx.fill();
+        if(wDays===0){ctx.strokeStyle='rgba(255,255,255,0.05)';ctx.lineWidth=0.5*S;ctx.beginPath();roundedRect(ctx, wx,by0,wSz,blkH,2*S);ctx.stroke();}
       }
     }
     // 月份标签：居中对齐格子
@@ -1907,7 +1907,7 @@ function shareYearlyReport() {
   for(const [m,cnt] of entsY){const barW=maxCntY>0?Math.max((cnt/maxCntY)*barFullY,16*S):16*S;
     ctx.fillStyle=mColors[m]||'#6b6864';ctx.font=(13*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';
     ctx.fillText(mLabels[m]||m,20*S,curY+10*S);
-    ctx.fillStyle=mColors[m]||'#6b6864';ctx.beginPath();ctx.roundRect(20*S+lWY,curY,barW,barH3,5*S);ctx.fill();
+    ctx.fillStyle=mColors[m]||'#6b6864';ctx.beginPath();roundedRect(ctx, 20*S+lWY,curY,barW,barH3,5*S);ctx.fill();
     ctx.fillStyle='#a09d98';ctx.textAlign='right';
     ctx.fillText(cnt+'次  '+Math.round((cnt/totalM)*100)+'%',W-20*S,curY+10*S);
     ctx.textAlign='left';curY+=20*S;}
@@ -2829,7 +2829,7 @@ function shareHeatmap() {
 
   // Grid background
   ctx.fillStyle = 'rgba(0,0,0,0.15)';
-  ctx.beginPath(); ctx.roundRect(lp - 6*S, tp - 22*S, gridW + 12*S, gridH + 34*S, 6*S); ctx.fill();
+  ctx.beginPath(); roundedRect(ctx, lp - 6*S, tp - 22*S, gridW + 12*S, gridH + 34*S, 6*S); ctx.fill();
 
   // Month labels
   ctx.fillStyle = '#6b6864'; ctx.font = (10*S) + 'px "Microsoft YaHei","PingFang SC",sans-serif';
@@ -2853,10 +2853,10 @@ function shareHeatmap() {
         grd.addColorStop(0, cd.colors[0]); grd.addColorStop(1, cd.colors[1] || cd.colors[0]);
         ctx.fillStyle = grd;
       } else { ctx.fillStyle = cd ? (cd.colors?.[0] || cd.color) : '#333'; } }
-      ctx.beginPath(); ctx.roundRect(x, y, cs, cs, 3*S); ctx.fill();
+      ctx.beginPath(); roundedRect(ctx, x, y, cs, cs, 3*S); ctx.fill();
       if (ds === todayDs) {
         ctx.strokeStyle = '#fff'; ctx.lineWidth = 2*S;
-        ctx.beginPath(); ctx.roundRect(x, y, cs, cs, 3*S); ctx.stroke();
+        ctx.beginPath(); roundedRect(ctx, x, y, cs, cs, 3*S); ctx.stroke();
       }
     }
   }
@@ -2874,7 +2874,7 @@ function shareHeatmap() {
   let lx = lp + (gridW - totalLegendW) / 2;
   for (const leg of legends) {
     ctx.fillStyle = leg.color;
-    ctx.beginPath(); ctx.roundRect(lx, legendY, 10*S, 10*S, 2*S); ctx.fill();
+    ctx.beginPath(); roundedRect(ctx, lx, legendY, 10*S, 10*S, 2*S); ctx.fill();
     ctx.fillStyle = '#a09d98';
     ctx.fillText(leg.label, lx + 14*S, legendY + 8*S);
     lx += ctx.measureText(leg.label).width + 22*S;
