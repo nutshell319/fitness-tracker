@@ -1436,7 +1436,7 @@ function shareWeeklyReport() {
   while (d <= sunday) {
     const ds = formatLocalDate(d); const cd = getCycleDayForDate(d);
     if (skipSet.has(ds)) skipDays++;
-    else if (checkinSet.has(ds) || cardioSetW2.has(ds)) { trainDays++; if (cd) for (const m of cd.muscles) muscleCount[m] = (muscleCount[m]||0)+1; }
+    else if (checkinSet.has(ds) || cardioSetW2.has(ds)) { trainDays++; if (cardioSetW2.has(ds)) muscleCount['cardio']=(muscleCount['cardio']||0)+1; else if (cd) for (const m of cd.muscles) muscleCount[m] = (muscleCount[m]||0)+1; }
     d.setDate(d.getDate()+1);
   }
   const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
@@ -1525,7 +1525,7 @@ function shareMonthlyReport() {
   let trainDays=0,skipDays=0;const muscleCount={};
   const d=new Date(monthStart);
   while(d<=today){const ds=formatLocalDate(d);
-    if(skipSet.has(ds))skipDays++;else if(checkinSet.has(ds)||cardioSetM.has(ds)){trainDays++;const cd=getCycleDayForDate(d);if(cd)for(const m of cd.muscles)muscleCount[m]=(muscleCount[m]||0)+1;}
+    if(skipSet.has(ds))skipDays++;else if(checkinSet.has(ds)||cardioSetM.has(ds)){trainDays++;if(cardioSetM.has(ds))muscleCount['cardio']=(muscleCount['cardio']||0)+1;else{const cd=getCycleDayForDate(d);if(cd)for(const m of cd.muscles)muscleCount[m]=(muscleCount[m]||0)+1;}}
     d.setDate(d.getDate()+1);}
   const canvas=document.createElement('canvas');canvas.width=W;canvas.height=H;const ctx=canvas.getContext('2d');
   ctx.fillStyle='#1e2127';ctx.fillRect(0,0,W,H);
@@ -1595,7 +1595,8 @@ function shareYearlyReport() {
     if(!skipSet.has(ds)&&(checkinSet.has(ds)||cardioSetYr2.has(ds))){
       trainDays++;monthDays[mIdx]++;monthWeeks[mIdx][weekIdx]++;
       if(monthDays[mIdx]>bestMonthDays){bestMonthDays=monthDays[mIdx];bestMonth=mIdx;}
-      const cd=getCycleDayForDate(d);if(cd)for(const m of cd.muscles)muscleCount[m]=(muscleCount[m]||0)+1;
+      if(cardioSetYr2.has(ds))muscleCount['cardio']=(muscleCount['cardio']||0)+1;
+      else{const cd=getCycleDayForDate(d);if(cd)for(const m of cd.muscles)muscleCount[m]=(muscleCount[m]||0)+1;}
     }else if(skipSet.has(ds)){skipDays++;}
     d.setDate(d.getDate()+1);}
   const totalD=Math.ceil((today-yearStart)/86400000)+1;
