@@ -1374,20 +1374,28 @@ function shareCheckinCard() {
   ctx.fillText(Math.round(pct*100) + '%', W-30*S, 318*S);
   ctx.textAlign = 'left';
 
-  // 动作列表
-  const maxShow = 6;
-  let listY = 352*S;
-  ctx.font = (12*S) + 'px "Microsoft YaHei","PingFang SC",sans-serif';
-  for (let i = 0; i < Math.min(exs.length, maxShow); i++) {
+  // 双列动作列表（充分利用横向空间）
+  const colW = (W - 80*S) / 2, leftX = 30*S, rightX = 30*S + colW + 20*S;
+  let col1Y = 328*S, col2Y = 328*S;
+  ctx.font = (13*S) + 'px "Microsoft YaHei","PingFang SC",sans-serif';
+  const maxPerCol = Math.ceil(exs.length / 2);
+  for (let i = 0; i < exs.length; i++) {
     const ex = exs[i];
     const done = isDone(ex.id);
+    const col = i < maxPerCol ? 0 : 1;
+    const x = col === 0 ? leftX : rightX;
+    const y = col === 0 ? col1Y : col2Y;
+    ctx.textAlign = 'left';
     ctx.fillStyle = done ? '#22c55e' : '#6b6864';
-    ctx.fillText((done ? '✓ ' : '○ ') + ex.name, 30*S, listY);
-    listY += 18*S;
-  }
-  if (exs.length > maxShow) {
-    ctx.fillStyle = '#6b6864';
-    ctx.fillText('... 还有 ' + (exs.length - maxShow) + ' 个动作', 30*S, listY);
+    const check = done ? '✓ ' : '○ ';
+    const maxNameW = colW - 12*S;
+    let displayName = ex.name;
+    while (ctx.measureText(check + displayName).width > maxNameW && displayName.length > 3) {
+      displayName = displayName.slice(0, -1);
+    }
+    if (displayName !== ex.name) displayName += '…';
+    ctx.fillText(check + displayName, x, y);
+    if (col === 0) col1Y += 20*S; else col2Y += 20*S;
   }
 
   // 底部标语
@@ -1472,27 +1480,30 @@ function shareWeeklyReport() {
     ctx.textAlign='center'; ctx.fillText(dd>today?'':wd[(monday.getDay()+i)%7],bx+barSlotW/2,barAreaY+barAreaH+12*S);
   }
   const totalM=Object.values(muscleCount).reduce((a,b)=>a+b,0);
-  let mY=182*S;
-  ctx.textAlign='left'; ctx.fillStyle='#a09d98'; ctx.font=(11*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';
-  ctx.fillText('训练部位分布',20*S,mY); mY+=16*S;
   const mColors={back:'#4ecdc4',chest:'#ff6b35',shoulder:'#f0c040',abs:'#22c55e',legs:'#a78bfa',arms:'#f472b6',cardio:'#60a5fa'};
   const mLabels={back:'背',chest:'胸',shoulder:'肩',abs:'腹',legs:'腿',arms:'手臂',cardio:'有氧'};
   const ents=Object.entries(muscleCount).sort((a,b)=>b[1]-a[1]);
-  for (let i=0;i<Math.min(ents.length,5);i++){
-    const [m,cnt]=ents[i]; const pct=totalM>0?cnt/totalM:0;
-    ctx.fillStyle=mColors[m]||'#6b6864'; ctx.font=(10*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';
-    ctx.fillText(mLabels[m]||m,20*S,mY+7*S);
-    const barLen=(W-100*S)*pct;
-    ctx.fillStyle=mColors[m]||'#6b6864'; ctx.beginPath(); ctx.roundRect(58*S,mY,barLen,10*S,3*S); ctx.fill();
-    ctx.fillStyle='#a09d98'; ctx.fillText(cnt+'次',62*S+barLen,mY+7*S); mY+=13*S;
+  const maxCnt=ents.length>0?ents[0][1]:1, nShow=Math.min(ents.length,5)||1;
+  const barSp=ents.length<=2?20*S:ents.length<=3?16*S:13*S;
+  let mY=180*S;
+  ctx.textAlign='left'; ctx.fillStyle='#a09d98'; ctx.font=(11*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';
+  ctx.fillText('训练部位分布',20*S,mY); mY+=18*S;
+  const lW=36*S, barFull=W-40*S-lW-42*S;
+  for (let i=0;i<nShow;i++){
+    const [m,cnt]=ents[i]; const barW=maxCnt>0?Math.max((cnt/maxCnt)*barFull,12*S):12*S;
+    ctx.fillStyle=mColors[m]||'#6b6864'; ctx.font=(11*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';
+    ctx.fillText(mLabels[m]||m,20*S,mY+8*S);
+    ctx.fillStyle=mColors[m]||'#6b6864'; ctx.beginPath(); ctx.roundRect(20*S+lW,mY,barW,11*S,4*S); ctx.fill();
+    ctx.fillStyle='#a09d98'; ctx.fillText(cnt+'次',20*S+lW+barW+6*S,mY+8*S); mY+=barSp;
   }
+  mY+=10*S;
   ctx.textAlign='center'; ctx.fillStyle='#a09d98'; ctx.font=(11*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';
   let summary=''; const topEnt=ents[0];
   if(trainDays>=7)summary='全勤一周！你是真正的战士 💪';
   else if(trainDays>=4)summary='这周练了'+trainDays+'天，'+(topEnt?mLabels[topEnt[0]]||'':'')+'练得最多，继续保持！';
   else if(trainDays>=1)summary='这周练了'+trainDays+'天，下周争取更多突破！';
   else summary='这周休息了一周，下周重新出发吧！';
-  ctx.fillText(summary,W/2,H-24*S);
+  ctx.fillText(summary,W/2,mY);
   ctx.fillStyle='#6b6864'; ctx.font=(9*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';
   ctx.fillText('FitnessTracker · 每周打卡',W/2,H-10*S);
   showSharePreview(canvas, '📊 周报分享', 'FitnessTracker-Weekly-'+formatLocalDate(sunday)+'.png');
@@ -1522,26 +1533,32 @@ function shareMonthlyReport() {
     ctx.fillStyle=cards[i].color;ctx.font='bold '+(20*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';
     ctx.textAlign='center';ctx.fillText(String(cards[i].num),cx+cardW/2,cardY+22*S);
     ctx.fillStyle='#a09d98';ctx.font=(10*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';ctx.fillText(cards[i].label,cx+cardW/2,cardY+36*S);}
-  ctx.textAlign='left';ctx.fillStyle='#a09d98';ctx.font=(11*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';ctx.fillText('当月热力',20*S,112*S);
-  const mc=5*S,mg=1*S,mx0=20*S,my0=120*S;const firstDow=monthStart.getDay();
+  const mc=6*S,mg=2*S,gridW2=7*(mc+mg)-mg,mx0M=(W-gridW2)/2,my0M=118*S,firstDow=monthStart.getDay();
+  ctx.textAlign='left';ctx.fillStyle='#a09d98';ctx.font=(11*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';ctx.fillText('当月热力',mx0M,112*S);
   let miniD=new Date(monthStart),miniCol=firstDow===0?6:firstDow-1,miniRow=0;
   for(let i=0;i<totalDays;i++){const ds=formatLocalDate(miniD);let clr='rgba(255,255,255,0.04)';
     const cardioSetMs=new Set(getCardioDates());
     if(skipSet.has(ds))clr='rgba(232,93,117,0.4)';else if(cardioSetMs.has(ds))clr='#60a5fa';else if(checkinSet.has(ds)){const cd=getCycleDayForDate(miniD);clr=cd?(cd.colors?.[0]||cd.color||'#333'):'#333';}
-    ctx.fillStyle=clr;ctx.beginPath();ctx.roundRect(mx0+miniCol*(mc+mg),my0+miniRow*(mc+mg),mc,mg,1*S);ctx.fill();
+    ctx.fillStyle=clr;ctx.beginPath();ctx.roundRect(mx0M+miniCol*(mc+mg),my0M+miniRow*(mc+mg),mc,mc,2*S);ctx.fill();
     miniD.setDate(miniD.getDate()+1);miniCol++;if(miniCol>=7){miniCol=0;miniRow++;}}
   const totalM=Object.values(muscleCount).reduce((a,b)=>a+b,0);let mY=174*S;
+  const hbBottom=my0M+(miniRow+1)*(mc+mg); mY=Math.max(hbBottom+16*S,180*S);
   ctx.fillStyle='#a09d98';ctx.font=(11*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';ctx.fillText('训练部位分布',20*S,mY);mY+=16*S;
   const mColors={back:'#4ecdc4',chest:'#ff6b35',shoulder:'#f0c040',abs:'#22c55e',legs:'#a78bfa',arms:'#f472b6',cardio:'#60a5fa'};
   const mLabels={back:'背',chest:'胸',shoulder:'肩',abs:'腹',legs:'腿',arms:'手臂',cardio:'有氧'};
   const ents=Object.entries(muscleCount).sort((a,b)=>b[1]-a[1]);
-  for(let i=0;i<Math.min(ents.length,4);i++){const[m,cnt]=ents[i];const pct=totalM>0?cnt/totalM:0;
-    ctx.fillStyle=mColors[m]||'#6b6864';ctx.font=(10*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';ctx.fillText(mLabels[m]||m,20*S,mY+7*S);
-    const barLen=(W-100*S)*pct;ctx.fillStyle=mColors[m]||'#6b6864';ctx.beginPath();ctx.roundRect(58*S,mY,barLen,10*S,3*S);ctx.fill();
-    ctx.fillStyle='#a09d98';ctx.fillText(cnt+'次',62*S+barLen,mY+7*S);mY+=13*S;}
+  const maxCntM=ents.length>0?ents[0][1]:1,nShowM=Math.min(ents.length,4)||1;
+  const barSpM=ents.length<=2?18*S:ents.length<=3?15*S:13*S;
+  const lWM=36*S,barFullM=W-40*S-lWM-42*S;
+  for(let i=0;i<nShowM;i++){const[m,cnt]=ents[i];const barW=maxCntM>0?Math.max((cnt/maxCntM)*barFullM,12*S):12*S;
+    ctx.fillStyle=mColors[m]||'#6b6864';ctx.font=(11*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';
+    ctx.fillText(mLabels[m]||m,20*S,mY+8*S);
+    ctx.fillStyle=mColors[m]||'#6b6864';ctx.beginPath();ctx.roundRect(20*S+lWM,mY,barW,11*S,4*S);ctx.fill();
+    ctx.fillStyle='#a09d98';ctx.fillText(cnt+'次',20*S+lWM+barW+6*S,mY+8*S);mY+=barSpM;}
+  mY+=8*S;
   ctx.textAlign='center';ctx.fillStyle='#a09d98';ctx.font=(11*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';
   const rate=totalDays>0?Math.round(trainDays/totalDays*100):0;
-  ctx.fillText((rate>=80?'出勤率优秀！继续加油 🔥':rate>=50?'还不错，下月保持节奏！':'下月争取更多训练日！')+'  目标：'+(trainDays+3)+' 天',W/2,H-24*S);
+  ctx.fillText((rate>=80?'出勤率优秀！继续加油 🔥':rate>=50?'还不错，下月保持节奏！':'下月争取更多训练日！')+'  目标：'+(trainDays+3)+' 天',W/2,mY);
   ctx.fillStyle='#6b6864';ctx.font=(9*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';ctx.fillText('FitnessTracker · 每月打卡',W/2,H-10*S);
   showSharePreview(canvas, '📊 月报分享', 'FitnessTracker-Monthly-'+(today.getMonth()+1)+'.png');
 }
@@ -1570,21 +1587,21 @@ function shareYearlyReport() {
     ctx.fillStyle=cards[i].color;ctx.font='bold '+(24*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';
     ctx.textAlign='center';ctx.fillText(String(cards[i].num),cx+cardW/2,cardY+28*S);
     ctx.fillStyle='#a09d98';ctx.font=(10*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';ctx.fillText(cards[i].label,cx+cardW/2,cardY+44*S);}
-  ctx.textAlign='left';ctx.fillStyle='#a09d98';ctx.font=(11*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';ctx.fillText('年度热力全景',20*S,138*S);
-  const mc=4*S,mg=1*S,mx0=20*S,my0=146*S;let d2=new Date(year,0,1);const fdow=d2.getDay();
+  ctx.textAlign='left';ctx.fillStyle='#a09d98';ctx.font=(11*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';ctx.fillText('年度热力全景',mx0Y,138*S);
+  const mc=4*S,mg=1*S,gridW3=7*(mc+mg)-mg,mx0Y=(W-gridW3)/2,my0=146*S;let d2=new Date(year,0,1);const fdow=d2.getDay();
   let col=fdow===0?6:fdow-1,row=0;
   while(d2<=today){const ds=formatLocalDate(d2);let clr='rgba(255,255,255,0.04)';
     if(skipSet.has(ds))clr='rgba(232,93,117,0.4)';else if(checkinSet.has(ds)){const cd=getCycleDayForDate(d2);clr=cd?(cd.colors?.[0]||cd.color||'#333'):'#333';}
-    ctx.fillStyle=clr;ctx.beginPath();ctx.roundRect(mx0+col*(mc+mg),my0+row*(mc+mg),mc,mg,1*S);ctx.fill();
+    ctx.fillStyle=clr;ctx.beginPath();ctx.roundRect(mx0Y+col*(mc+mg),my0+row*(mc+mg),mc,mg,1*S);ctx.fill();
     d2.setDate(d2.getDate()+1);col++;if(col>=7){col=0;row++;}}
   const totalM=Object.values(muscleCount).reduce((a,b)=>a+b,0);let mY2=146*S+(row+1)*(mc+mg)+12*S;
   ctx.fillStyle='#a09d98';ctx.font=(12*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';ctx.fillText('训练部位分布',20*S,mY2);mY2+=18*S;
   const mColors={back:'#4ecdc4',chest:'#ff6b35',shoulder:'#f0c040',abs:'#22c55e',legs:'#a78bfa',arms:'#f472b6',cardio:'#60a5fa'};
   const mLabels={back:'背',chest:'胸',shoulder:'肩',abs:'腹',legs:'腿',arms:'手臂',cardio:'有氧'};
-  for(const [m,clr] of Object.entries(mColors)){const cnt=muscleCount[m]||0;const pct=totalM>0?cnt/totalM:0;
-    ctx.fillStyle=clr;ctx.font=(10*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';ctx.fillText(mLabels[m]||m,20*S,mY2+7*S);
-    ctx.fillStyle=clr;ctx.beginPath();ctx.roundRect(58*S,mY2,(W-110*S)*pct,10*S,3*S);ctx.fill();
-    ctx.fillStyle='#a09d98';ctx.fillText(cnt+'次 '+Math.round(pct*100)+'%',62*S+(W-110*S)*pct,mY2+7*S);mY2+=15*S;}
+  const entsY=Object.entries(muscleCount).filter(([,c])=>c>0).sort((a,b)=>b[1]-a[1]);const maxCntY=entsY.length>0?entsY[0][1]:1;const lWY=38*S,barFullY=W-40*S-lWY-66*S;for(const [m,cnt] of entsY){const barW=maxCntY>0?Math.max((cnt/maxCntY)*barFullY,12*S):12*S;
+    ctx.fillStyle=mColors[m]||"#6b6864";ctx.font=(10*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';ctx.fillText(mLabels[m]||m,20*S,mY2+7*S);
+    ctx.fillStyle=mColors[m]||"#6b6864";ctx.beginPath();ctx.roundRect(20*S+lWY,mY2,barW,11*S,4*S);ctx.fill();
+    ctx.fillStyle='#a09d98';ctx.fillText(cnt+'次 '+Math.round((cnt/totalM)*100)+'%',20*S+lWY+barW+6*S,mY2+7*S);mY2+=15*S;}
   mY2+=8*S;const topMuscle=Object.entries(muscleCount).sort((a,b)=>b[1]-a[1])[0];ctx.textAlign='left';
   ctx.fillStyle='#a09d98';ctx.font=(12*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';
   ctx.fillText('训练偏好：最爱练'+(topMuscle?mLabels[topMuscle[0]]||topMuscle[0]:'—')+' ❤️',20*S,mY2);mY2+=18*S;
@@ -2470,13 +2487,13 @@ function shareHeatmap() {
 
   // 标题
   ctx.fillStyle = '#e4e2df'; ctx.font = 'bold ' + (18*S) + 'px "Microsoft YaHei","PingFang SC",sans-serif';
-  ctx.fillText('🏋️ FitnessTracker · 训练热力图', 24*S, 36*S);
+  ctx.fillText('🏋️ FitnessTracker · 训练热力图', lp, 36*S);
 
   // 统计行
   ctx.font = (13*S) + 'px "Microsoft YaHei","PingFang SC",sans-serif';
-  ctx.fillStyle = '#ff6b35'; ctx.fillText(String(trainDays), 24*S, 62*S);
-  ctx.fillStyle = '#a09d98'; ctx.fillText(' 天训练', 24*S + ctx.measureText(String(trainDays)).width, 62*S);
-  ctx.fillStyle = '#e85d75'; const sx = 24*S + ctx.measureText(String(trainDays) + ' 天训练  ').width;
+  ctx.fillStyle = '#ff6b35'; ctx.fillText(String(trainDays), lp, 62*S);
+  ctx.fillStyle = '#a09d98'; ctx.fillText(' 天训练', lp + ctx.measureText(String(trainDays)).width, 62*S);
+  ctx.fillStyle = '#e85d75'; const sx = lp + ctx.measureText(String(trainDays) + ' 天训练  ').width;
   ctx.fillText(String(skipDays), sx, 62*S);
   ctx.fillStyle = '#a09d98'; ctx.fillText(' 天跳过', sx + ctx.measureText(String(skipDays)).width, 62*S);
   ctx.fillStyle = '#4ecdc4'; const kx = sx + ctx.measureText(String(skipDays) + ' 天跳过  ').width;
@@ -2528,7 +2545,7 @@ function shareHeatmap() {
     {color:'#4ecdc4', label:'背'}, {color:'#ff6b35', label:'胸'}, {color:'#f0c040', label:'肩'},
     {color:'#22c55e', label:'腹'}, {color:'#60a5fa', label:'有氧'}, {color:'rgba(232,93,117,0.5)', label:'跳过'}
   ];
-  let lx = lp;
+  let totalLegendW = 0; for (const leg of legends) { totalLegendW += ctx.measureText(leg.label).width + 18*S; } totalLegendW -= 8*S; let lx = lp + (gridW - totalLegendW) / 2;
   for (const leg of legends) {
     ctx.fillStyle = leg.color;
     ctx.beginPath(); ctx.roundRect(lx, legendY, 8*S, 8*S, 2*S); ctx.fill();
