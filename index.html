@@ -1605,30 +1605,46 @@ function shareYearlyReport() {
     ctx.textAlign='center';ctx.fillText(String(cards[i].num),cx+cardW/2,cardY+28*S);
     ctx.fillStyle='#a09d98';ctx.font=(10*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';ctx.fillText(cards[i].label,cx+cardW/2,cardY+46*S);}
 
-  // 年度热力图 — 格子尺寸随列数自适应，铺满卡片宽度
+  // ═══ 月度训练柱状图 + 紧凑年热力图 ═══
   let curY=cardY+cardH+18*S;
   ctx.textAlign='left';ctx.fillStyle='#a09d98';ctx.font=(11*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';
-  // 第一遍：收集所有格子，确定实际列数
-  const cells=[];let maxCol=0;
+  ctx.fillText('月度训练概览',20*S,curY); curY+=14*S;
+
+  // 12个月柱状图
+  const barMaxW=W-80*S,barH2=10*S,barGap=4*S,maxMonthDays=Math.max(1,...monthDays);
+  const monthsPassed=today.getMonth()+1;
+  for(let m=0;m<12;m++){
+    const cnt=monthDays[m]||0,barW2=m<=today.getMonth()?Math.max((cnt/maxMonthDays)*barMaxW,cnt>0?20*S:0):0;
+    ctx.fillStyle=m<=today.getMonth()?'#1e2127':'rgba(255,255,255,0.02)';
+    ctx.beginPath();ctx.roundRect(60*S,curY,barMaxW,barH2,3*S);ctx.fill();
+    if(barW2>0){ctx.fillStyle='#ff6b35';ctx.beginPath();ctx.roundRect(60*S,curY,barW2,barH2,3*S);ctx.fill();}
+    ctx.fillStyle='#6b6864';ctx.font=(9*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';
+    ctx.fillText((m+1)+'月',20*S,curY+8*S);
+    if(m<=today.getMonth()){ctx.fillStyle='#a09d98';ctx.fillText(cnt+'天',64*S+barW2,curY+8*S);}
+    curY+=barH2+barGap;
+  }
+
+  // 紧凑年热力图（上限 mc=5*S，不超过画布）
+  curY+=8*S;
+  const cells=[];let maxCol2=0;
   {let d2=new Date(year,0,1);const fdow=d2.getDay();
   let col=fdow===0?6:fdow-1,row=0;
   while(d2<=today){const ds=formatLocalDate(d2);let clr='rgba(255,255,255,0.04)';
     if(skipSet.has(ds))clr='rgba(232,93,117,0.4)';else if(checkinSet.has(ds)){const cd=getCycleDayForDate(d2);clr=cd?(cd.colors?.[0]||cd.color||'#333'):'#333';}
-    cells.push({col,row,clr});if(col>maxCol)maxCol=col;
+    cells.push({col,row,clr});if(col>maxCol2)maxCol2=col;
     d2.setDate(d2.getDate()+1);col++;if(col>=7){col=0;row++;}}}
-  const numCols=maxCol+1,lastRow=cells.length>0?cells[cells.length-1].row:0;
-  // 自适应格子尺寸：填充90%画布宽度
-  const maxGW=W-40*S,cellStep=Math.floor(maxGW/numCols);
-  const mg2=Math.max(1*S,Math.floor(cellStep*0.18)),mc2=cellStep-mg2;
-  const gridW3=numCols*(mc2+mg2)-mg2,mx0Y=(W-gridW3)/2;
-  ctx.fillText('年度热力全景',mx0Y,curY); curY+=10*S;
+  const numCols2=maxCol2+1,lastRow2=cells.length>0?cells[cells.length-1].row:0;
+  const mc3=Math.min(5*S,Math.floor((W-50*S)/numCols2*0.85)),mg3=Math.max(1*S,Math.floor(mc3*0.2));
+  const gridW3=numCols2*(mc3+mg3)-mg3,mx0Y=(W-gridW3)/2;
+  ctx.fillStyle='#a09d98';ctx.font=(11*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';
+  ctx.fillText('年度热力',mx0Y,curY); curY+=10*S;
   for(const c of cells){
-    ctx.fillStyle=c.clr;ctx.beginPath();ctx.roundRect(mx0Y+c.col*(mc2+mg2),curY+c.row*(mc2+mg2),mc2,mc2,Math.min(2*S,mc2*0.25));ctx.fill();
+    ctx.fillStyle=c.clr;ctx.beginPath();ctx.roundRect(mx0Y+c.col*(mc3+mg3),curY+c.row*(mc3+mg3),mc3,mc3,Math.min(1.5*S,mc3*0.25));ctx.fill();
   }
+  curY=curY+(lastRow2+1)*(mc3+mg3)+14*S;
 
   // Adaptive muscle distribution
   const totalM=Object.values(muscleCount).reduce((a,b)=>a+b,0);
-  curY=curY+(lastRow+1)*(mc2+mg2)+18*S;
   const mColors={back:'#4ecdc4',chest:'#ff6b35',shoulder:'#f0c040',abs:'#22c55e',legs:'#a78bfa',arms:'#f472b6',cardio:'#60a5fa'};
   const mLabels={back:'背',chest:'胸',shoulder:'肩',abs:'腹',legs:'腿',arms:'手臂',cardio:'有氧'};
   ctx.textAlign='left';ctx.fillStyle='#a09d98';ctx.font=(12*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';
