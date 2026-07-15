@@ -1435,8 +1435,9 @@ function shareWeeklyReport() {
   const d = new Date(monday);
   while (d <= sunday) {
     const ds = formatLocalDate(d); const cd = getCycleDayForDate(d);
+    const isCheckedInW=checkinSet.has(ds)||localStorage.getItem('ft_checkin_'+ds)!==null;
     if (skipSet.has(ds)) skipDays++;
-    else if (checkinSet.has(ds) || cardioSetW2.has(ds)) { trainDays++; if (cardioSetW2.has(ds)) muscleCount['cardio']=(muscleCount['cardio']||0)+1; else if (cd) for (const m of cd.muscles) muscleCount[m] = (muscleCount[m]||0)+1; }
+    else if (isCheckedInW || cardioSetW2.has(ds)) { trainDays++; if (cardioSetW2.has(ds)) muscleCount['cardio']=(muscleCount['cardio']||0)+1; else if (cd) for (const m of cd.muscles) muscleCount[m] = (muscleCount[m]||0)+1; }
     d.setDate(d.getDate()+1);
   }
   const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
@@ -1525,7 +1526,10 @@ function shareMonthlyReport() {
   let trainDays=0,skipDays=0;const muscleCount={};
   const d=new Date(monthStart);
   while(d<=today){const ds=formatLocalDate(d);
-    if(skipSet.has(ds))skipDays++;else if(checkinSet.has(ds)||cardioSetM.has(ds)){trainDays++;if(cardioSetM.has(ds))muscleCount['cardio']=(muscleCount['cardio']||0)+1;else{const cd=getCycleDayForDate(d);if(cd)for(const m of cd.muscles)muscleCount[m]=(muscleCount[m]||0)+1;}}
+    const isCheckedIn=checkinSet.has(ds)||localStorage.getItem('ft_checkin_'+ds)!==null;
+    const isCardio=cardioSetM.has(ds);
+    if(skipSet.has(ds))skipDays++;
+    else if(isCheckedIn||isCardio){trainDays++;if(isCardio)muscleCount['cardio']=(muscleCount['cardio']||0)+1;else{const cd=getCycleDayForDate(d);if(cd)for(const m of cd.muscles)muscleCount[m]=(muscleCount[m]||0)+1;}}
     d.setDate(d.getDate()+1);}
   const canvas=document.createElement('canvas');canvas.width=W;canvas.height=H;const ctx=canvas.getContext('2d');
   ctx.fillStyle='#1e2127';ctx.fillRect(0,0,W,H);
@@ -1550,7 +1554,8 @@ function shareMonthlyReport() {
   let miniD=new Date(monthStart),miniCol=firstDow===0?6:firstDow-1,miniRow=0;
   for(let i=0;i<totalDays;i++){const ds=formatLocalDate(miniD);let clr='rgba(255,255,255,0.04)';
     const cardioSetMs=new Set(getCardioDates());
-    if(skipSet.has(ds))clr='rgba(232,93,117,0.4)';else if(cardioSetMs.has(ds))clr='#60a5fa';else if(checkinSet.has(ds)){const cd=getCycleDayForDate(miniD);clr=cd?(cd.colors?.[0]||cd.color||'#333'):'#333';}
+    const isCheckedInM=checkinSet.has(ds)||localStorage.getItem('ft_checkin_'+ds)!==null;
+    if(skipSet.has(ds))clr='rgba(232,93,117,0.4)';else if(cardioSetMs.has(ds))clr='#60a5fa';else if(isCheckedInM){const cd=getCycleDayForDate(miniD);clr=cd?(cd.colors?.[0]||cd.color||'#333'):'#333';}
     ctx.fillStyle=clr;ctx.beginPath();ctx.roundRect(mx0M+miniCol*(mc+mg),curY+miniRow*(mc+mg),mc,mc,2*S);ctx.fill();
     miniD.setDate(miniD.getDate()+1);miniCol++;if(miniCol>=7){miniCol=0;miniRow++;}}
 
@@ -1592,7 +1597,7 @@ function shareYearlyReport() {
     const month1st=new Date(d.getFullYear(),mIdx,1);
     const weekIdx=Math.floor((d.getDate()+month1st.getDay()-1)/7);
     if(!monthWeeks[mIdx][weekIdx])monthWeeks[mIdx][weekIdx]=0;
-    if(!skipSet.has(ds)&&(checkinSet.has(ds)||cardioSetYr2.has(ds))){
+    if(!skipSet.has(ds)&&(checkinSet.has(ds)||localStorage.getItem('ft_checkin_'+ds)!==null||cardioSetYr2.has(ds))){
       trainDays++;monthDays[mIdx]++;monthWeeks[mIdx][weekIdx]++;
       if(monthDays[mIdx]>bestMonthDays){bestMonthDays=monthDays[mIdx];bestMonth=mIdx;}
       if(cardioSetYr2.has(ds))muscleCount['cardio']=(muscleCount['cardio']||0)+1;
