@@ -30,6 +30,8 @@ test('share preview uses a bounded three-row grid layout', () => {
 
   assert.match(content, /display\s*:\s*grid\s*;/);
   assert.match(content, /grid-template-rows\s*:\s*auto\s+minmax\(\s*0\s*,\s*1fr\s*\)\s+auto\s*;/);
+  assert.match(content, /height\s*:\s*min\(\s*90vh\s*,\s*900px\s*\)\s*;/);
+  assert.match(content, /height\s*:\s*min\(\s*90dvh\s*,\s*900px\s*\)\s*;/);
   const body = getRule('.share-preview-body');
   assert.match(body, /min-height\s*:\s*0\s*;/);
   assert.match(body, /overflow\s*:\s*auto\s*;/);
@@ -45,8 +47,29 @@ test('share preview image styling is class-based and mobile actions form two col
   assert.match(image[0], /class="share-preview-img"/);
   assert.doesNotMatch(image[0], /\sstyle\s*=/);
 
+  const actions = getRule('.share-preview-actions');
+  assert.match(actions, /display\s*:\s*grid\s*;/);
+
   const mediaStart = source.search(/@media\s*\(\s*max-width\s*:\s*480px\s*\)/);
   assert.notEqual(mediaStart, -1, 'missing 480px responsive media query');
-  const actions = getRule('.share-preview-actions', getBlock(source, mediaStart));
-  assert.match(actions, /grid-template-columns\s*:\s*repeat\(\s*2\s*,\s*minmax\(\s*0\s*,\s*1fr\s*\)\s*\)\s*;/);
+  const mobileActions = getRule('.share-preview-actions', getBlock(source, mediaStart));
+  assert.match(mobileActions, /grid-template-columns\s*:\s*repeat\(\s*2\s*,\s*minmax\(\s*0\s*,\s*1fr\s*\)\s*\)\s*;/);
+});
+
+test('share preview preserves renderer hooks and an accessible close control', () => {
+  assert.match(source, /<div\s+id="sharePreviewModal"[^>]*>/);
+  assert.match(source, /<img\s+id="sharePreviewImg"[^>]*>/);
+  assert.match(source, /<button\s+class="share-preview-btn save"\s+id="sharePreviewSaveBtn"[^>]*>/);
+
+  const closeButton = source.match(/<button\s+class="share-preview-close"[^>]*>/);
+  assert.ok(closeButton, 'missing share preview close button');
+  assert.match(closeButton[0], /aria-label="关闭分享预览"/);
+
+  const showPreviewStart = source.indexOf('function showSharePreview(');
+  assert.notEqual(showPreviewStart, -1, 'missing showSharePreview function');
+  const showPreviewEnd = source.indexOf('\nfunction ', showPreviewStart + 1);
+  const showPreview = source.slice(showPreviewStart, showPreviewEnd);
+  assert.match(showPreview, /\$\('#sharePreviewImg'\)\.src\s*=\s*canvas\.toDataURL\('image\/png'\)\s*;/);
+  assert.match(showPreview, /\$\('#sharePreviewModal'\)\.style\.display\s*=\s*'flex'\s*;/);
+  assert.match(source, /const\s+saveBtn\s*=\s*\$\('#sharePreviewSaveBtn'\)\s*;[\s\S]*?saveBtn\.addEventListener\('click'/);
 });
