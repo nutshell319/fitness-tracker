@@ -669,6 +669,7 @@ function isTodayCheckedIn() { return isCheckedIn(todayStr()); }
 
 // ── 统一统计引擎：从 localStorage 直读，所有分享卡片共用 ──
 function computeStats(startDate, endDate) {
+  const trainStart = getStartDate(); // 用户设定的训练起始日
   const skipRaw = localStorage.getItem('ft_skip_dates');
   const cardioRaw = localStorage.getItem('ft_cardio_dates');
   const skipArr = skipRaw ? JSON.parse(skipRaw) : [];
@@ -682,7 +683,8 @@ function computeStats(startDate, endDate) {
     const ds = formatLocalDate(d);
     const isSkip = skipArr.includes(ds);
     const isCardio = cardioArr.includes(ds);
-    if (isSkip) { skipDays++; dailyStatus.push({ds, type:'skip'}); }
+    if (d < trainStart) { dailyStatus.push({ds, type:'before'}); } // 训练开始前不计
+    else if (isSkip) { skipDays++; dailyStatus.push({ds, type:'skip'}); }
     else {
       trainDays++; dailyStatus.push({ds, type:isCardio?'cardio':'train'});
       if (isCardio) muscleCount['cardio'] = (muscleCount['cardio'] || 0) + 1;
@@ -1566,7 +1568,8 @@ function shareMonthlyReport() {
   let miniD=new Date(monthStart),miniCol=firstDow===0?6:firstDow-1,miniRow=0;
   for(const st of stats.dailyStatus){
     let clr='rgba(255,255,255,0.04)';
-    if(st.type==='skip')clr='rgba(232,93,117,0.4)';
+    if(st.type==='before')clr='rgba(255,255,255,0.02)';
+    else if(st.type==='skip')clr='rgba(232,93,117,0.4)';
     else if(st.type==='cardio')clr='#60a5fa';
     else if(st.type==='train'){const cd=getCycleDayForDate(miniD);clr=cd?(cd.colors?.[0]||cd.color||'#333'):'#333';}
     ctx.fillStyle=clr;ctx.beginPath();ctx.roundRect(mx0M+miniCol*(mc+mg),curY+miniRow*(mc+mg),mc,mc,2*S);ctx.fill();
