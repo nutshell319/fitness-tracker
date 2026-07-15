@@ -1548,11 +1548,11 @@ function fitHeatmapGrid(bounds, columns, rows, preferredGap) {
  * @param {Array<[string,number]>} entries 部位及次数列表。
  * @param {number} availableHeight 排行可用高度。
  * @param {number} rowHeight 单行高度。
- * @returns {Array<[string,number]>} 可直接绘制的排行条目。
+ * @returns {Array<[string,number]> & {hiddenCount?:number}} 可直接绘制的排行条目；不足一整行时返回带 hiddenCount 的空数组。
  */
 function planRankedItems(entries, availableHeight, rowHeight) {
   const safeRowHeight = Math.max(1, Number(rowHeight) || 1);
-  const maxRows = Math.max(1, Math.floor(Math.max(0, Number(availableHeight) || 0) / safeRowHeight));
+  const maxRows = Math.floor(Math.max(0, Number(availableHeight) || 0) / safeRowHeight);
   const ranked = (Array.isArray(entries) ? entries : []).map((entry, index) => [
     entry[0],
     Number(entry[1]) || 0,
@@ -1560,6 +1560,12 @@ function planRankedItems(entries, availableHeight, rowHeight) {
   ]).sort((left, right) => right[1] - left[1] || left[2] - right[2]);
 
   if (!ranked.length) return [];
+  if (maxRows <= 0) {
+    // 不足一行时不能绘制聚合行，否则会侵入页脚安全区；隐藏数量供调用方决定是否显示占位提示。
+    const emptyPlan = [];
+    Object.defineProperty(emptyPlan, 'hiddenCount', { value: ranked.length, enumerable: false });
+    return emptyPlan;
+  }
   const total = ranked.reduce((sum, entry) => sum + entry[1], 0);
   if (maxRows === 1) return [['其他', total]];
   if (ranked.length <= maxRows) return ranked.map(entry => [entry[0], entry[1]]);

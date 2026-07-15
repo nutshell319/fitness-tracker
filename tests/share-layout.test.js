@@ -187,3 +187,14 @@ test('部位排行溢出时使用聚合行并保持在可用高度内', () => {
   assert.equal(ranked.length, 4);
   assert.deepEqual(Array.from(ranked[3]), ['其他', 14]);
 });
+
+test('排行区域不足一行时不绘制任何行并记录隐藏条目数', () => {
+  const layout = loadShareLayout();
+  const entries = [['背', 2], ['胸', 1]];
+
+  for (const availableHeight of [23, 0]) {
+    const ranked = layout.planRankedItems(entries, availableHeight, 24);
+    assert.deepEqual(Array.from(ranked), []);
+    assert.equal(ranked.hiddenCount, 2);
+  }
+});
