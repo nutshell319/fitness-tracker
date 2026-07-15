@@ -1380,8 +1380,10 @@ const SHARE_FORMATS = Object.freeze({
  * @returns {{type:string,width:number,height:number,padding:number,header:number,footer:number,minFont:number}} 格式副本。
  */
 function getShareFormat(type) {
+  if (!Object.prototype.hasOwnProperty.call(SHARE_FORMATS, type)) {
+    throw new Error(`未知分享图类型: ${type}`);
+  }
   const format = SHARE_FORMATS[type];
-  if (!format) throw new Error(`Unknown share format: ${type}`);
   return { ...format, type };
 }
 
@@ -2806,7 +2808,7 @@ function shareHeatmap() {
 
   ctx.fillStyle = '#1e2127';
   const cr = 12*S;
-  ctx.beginPath(); ctx.moveTo(cr, 0); ctx.lineTo(cw-cr, 0); ctx.arcTo(cw, 0, cw, cr, cr); ctx.lineTo(cw, ch-cr); ctx.arcTo(cw, ch, cw-cr, ch, cr); ctx.lineTo(cr, ch); ctx.arcTo(0, ch, 0, ch-cr, cr); ctx.lineTo(0, cr); ctx.arcTo(0, 0, cr, 0, cr); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); roundedRect(ctx, 0, 0, cw, ch, cr); ctx.fill();
 
   // Title + stats - aligned with grid
   ctx.textAlign = 'left';

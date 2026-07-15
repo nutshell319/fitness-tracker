@@ -64,7 +64,9 @@ test('分享布局工具公开所需 API 且定义五种画布尺寸', () => {
     ], size);
     assert.equal(format.type, type);
   }
-  assert.throws(() => layout.getShareFormat('unknown'), /Unknown share format/);
+  for (const invalidType of ['unknown', 'toString', 'constructor', '__proto__']) {
+    assert.throws(() => layout.getShareFormat(invalidType), /未知分享图类型/);
+  }
 });
 
 test('roundedRect 在没有原生 roundRect 时使用二次曲线回退', () => {
@@ -102,6 +104,17 @@ test('五种分享卡片渲染器均通过 roundedRect 创建圆角路径', () =
     assert.doesNotMatch(body, /ctx\.roundRect\(/, `${name} 仍直接调用 ctx.roundRect`);
     assert.match(body, /roundedRect\(ctx,/, `${name} 未使用 roundedRect`);
   }
+});
+
+test('热力图外框通过 roundedRect 绘制而非手工 arcTo 序列', () => {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const start = source.indexOf('function shareHeatmap() {');
+  assert.notEqual(start, -1, '未找到热力图分享渲染器');
+  const end = source.indexOf('</script>', start);
+  const body = source.slice(start, end);
+
+  assert.match(body, /ctx\.beginPath\(\);\s*roundedRect\(ctx,\s*0,\s*0,\s*cw,\s*ch,\s*cr\);\s*ctx\.fill\(\);/);
+  assert.doesNotMatch(body, /ctx\.moveTo\(cr, 0\);[\s\S]*ctx\.arcTo\(0, 0, cr, 0, cr\);\s*ctx\.closePath\(\);\s*ctx\.fill\(\);/);
 });
 
 test('指标网格的所有矩形均位于周报正文安全区域内', () => {
