@@ -675,20 +675,19 @@ function computeStats(startDate, endDate) {
   const cardioArr = cardioRaw ? JSON.parse(cardioRaw) : [];
   let trainDays = 0, skipDays = 0, totalDays = 0;
   const muscleCount = {};
-  const dailyStatus = []; // [{ds, type:'train'|'cardio'|'skip'|'rest'}]
+  const dailyStatus = [];
   const d = new Date(startDate);
   while (d <= endDate) {
     totalDays++;
     const ds = formatLocalDate(d);
     const isSkip = skipArr.includes(ds);
     const isCardio = cardioArr.includes(ds);
-    const hasCheckin = localStorage.getItem('ft_checkin_' + ds) !== null || localStorage.getItem('ft_done_' + ds) !== null;
     if (isSkip) { skipDays++; dailyStatus.push({ds, type:'skip'}); }
-    else if (hasCheckin || isCardio) {
+    else {
       trainDays++; dailyStatus.push({ds, type:isCardio?'cardio':'train'});
       if (isCardio) muscleCount['cardio'] = (muscleCount['cardio'] || 0) + 1;
       else { const cd = getCycleDayForDate(d); if (cd) for (const m of cd.muscles) muscleCount[m] = (muscleCount[m] || 0) + 1; }
-    } else { dailyStatus.push({ds, type:'rest'}); }
+    }
     d.setDate(d.getDate() + 1);
   }
   return { trainDays, skipDays, totalDays, muscleCount, dailyStatus };
@@ -715,9 +714,8 @@ function computeYearlyStats() {
     if (!monthWeeks[mIdx][weekIdx]) monthWeeks[mIdx][weekIdx] = 0;
     const isSkip = skipArr.includes(ds);
     const isCardio = cardioArr.includes(ds);
-    const hasCheckin = localStorage.getItem('ft_checkin_' + ds) !== null || localStorage.getItem('ft_done_' + ds) !== null;
     if (isSkip) { skipDays++; }
-    else if (hasCheckin || isCardio) {
+    else {
       trainDays++; monthDays[mIdx]++; monthWeeks[mIdx][weekIdx]++;
       if (monthDays[mIdx] > bestMonthDays) { bestMonthDays = monthDays[mIdx]; bestMonth = mIdx; }
       if (isCardio) muscleCount['cardio'] = (muscleCount['cardio'] || 0) + 1;
@@ -737,9 +735,7 @@ function getCurrentStreak() {
   const check = new Date(today);
   while (check >= start) {
     const ds = formatLocalDate(check);
-    if (skipArr.includes(ds)) break; // 跳过日期断连续
-    if (cardioArr.includes(ds)) { streak++; check.setDate(check.getDate() - 1); continue; } // 有氧日算训练
-    if (localStorage.getItem('ft_checkin_'+ds) === null && localStorage.getItem('ft_done_'+ds) === null) break; // 无打卡记录则断
+    if (skipArr.includes(ds)) break; // 只有跳过才断连续
     streak++;
     check.setDate(check.getDate() - 1);
   }
