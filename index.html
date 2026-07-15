@@ -1418,7 +1418,7 @@ function shareCheckinCard() {
 
 // ── 周报（横版 16:9 Canvas）──
 function shareWeeklyReport() {
-  const S = 3, W = 400*S, H = 290*S;
+  const S = 3, W = 400*S, H = 300*S;
   const today = new Date(); today.setHours(0,0,0,0);
   const dow = today.getDay();
   const mondayOffset = dow === 0 ? -6 : 1 - dow;
@@ -1472,7 +1472,7 @@ function shareWeeklyReport() {
     ctx.textAlign='center'; ctx.fillText(dd>today?'':wd[(monday.getDay()+i)%7],bx+barSlotW/2,barAreaY+barAreaH+12*S);
   }
   const totalM=Object.values(muscleCount).reduce((a,b)=>a+b,0);
-  let mY=170*S;
+  let mY=182*S;
   ctx.textAlign='left'; ctx.fillStyle='#a09d98'; ctx.font=(11*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';
   ctx.fillText('训练部位分布',20*S,mY); mY+=16*S;
   const mColors={back:'#4ecdc4',chest:'#ff6b35',shoulder:'#f0c040',abs:'#22c55e',legs:'#a78bfa',arms:'#f472b6',cardio:'#60a5fa'};
@@ -1500,7 +1500,7 @@ function shareWeeklyReport() {
 
 // ── 月报（横版 16:9 Canvas）──
 function shareMonthlyReport() {
-  const S=3,W=400*S,H=280*S; const today=new Date(); today.setHours(0,0,0,0);
+  const S=3,W=400*S,H=290*S; const today=new Date(); today.setHours(0,0,0,0);
   const monthStart=new Date(today.getFullYear(),today.getMonth(),1);
   const totalDays=Math.min(new Date(today.getFullYear(),today.getMonth()+1,0).getDate(),today.getDate());
   const skipSet=new Set(getSkipDates()); const cardioSetM=new Set(getCardioDates()); const checkinSet=getCheckinSet();
@@ -1530,7 +1530,7 @@ function shareMonthlyReport() {
     if(skipSet.has(ds))clr='rgba(232,93,117,0.4)';else if(cardioSetMs.has(ds))clr='#60a5fa';else if(checkinSet.has(ds)){const cd=getCycleDayForDate(miniD);clr=cd?(cd.colors?.[0]||cd.color||'#333'):'#333';}
     ctx.fillStyle=clr;ctx.beginPath();ctx.roundRect(mx0+miniCol*(mc+mg),my0+miniRow*(mc+mg),mc,mg,1*S);ctx.fill();
     miniD.setDate(miniD.getDate()+1);miniCol++;if(miniCol>=7){miniCol=0;miniRow++;}}
-  const totalM=Object.values(muscleCount).reduce((a,b)=>a+b,0);let mY=162*S;
+  const totalM=Object.values(muscleCount).reduce((a,b)=>a+b,0);let mY=174*S;
   ctx.fillStyle='#a09d98';ctx.font=(11*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';ctx.fillText('训练部位分布',20*S,mY);mY+=16*S;
   const mColors={back:'#4ecdc4',chest:'#ff6b35',shoulder:'#f0c040',abs:'#22c55e',legs:'#a78bfa',arms:'#f472b6',cardio:'#60a5fa'};
   const mLabels={back:'背',chest:'胸',shoulder:'肩',abs:'腹',legs:'腿',arms:'手臂',cardio:'有氧'};
