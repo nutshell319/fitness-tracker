@@ -1364,6 +1364,240 @@ function getTodayExercises() {
 
 // 分享日签（Phase 3 实现，此处占位）
 // ── 分享日签卡片（Canvas 竖版 3:4 高清 PNG）──
+// #region 分享布局工具
+// 分享卡片的画布与安全边距统一在这里定义，避免各个导出函数自行计算后发生内容重叠。
+const SHARE_FORMATS = Object.freeze({
+  daily: Object.freeze({ width: 1080, height: 1440, padding: 72, header: 252, footer: 118, minFont: 26 }),
+  yearly: Object.freeze({ width: 1080, height: 1440, padding: 72, header: 224, footer: 118, minFont: 24 }),
+  weekly: Object.freeze({ width: 1600, height: 900, padding: 72, header: 126, footer: 72, minFont: 22 }),
+  monthly: Object.freeze({ width: 1600, height: 900, padding: 72, header: 126, footer: 72, minFont: 22 }),
+  heatmap: Object.freeze({ width: 1600, height: 900, padding: 72, header: 154, footer: 92, minFont: 20 })
+});
+
+/**
+ * 获取指定分享类型的基础尺寸。返回副本可防止调用方修改共享的格式定义。
+ * @param {string} type 分享卡片类型。
+ * @returns {{type:string,width:number,height:number,padding:number,header:number,footer:number,minFont:number}} 格式副本。
+ */
+function getShareFormat(type) {
+  const format = SHARE_FORMATS[type];
+  if (!format) throw new Error(`Unknown share format: ${type}`);
+  return { ...format, type };
+}
+
+/**
+ * 将卡片严格切分为标题、正文和页脚区域。正文的上下边界直接接触标题和页脚，绘制代码无需再猜测可用高度。
+ * @param {string} type 分享卡片类型。
+ * @returns {{format:object,inner:object,header:object,body:object,footer:object}} 各安全区域矩形。
+ */
+function createShareLayout(type) {
+  const format = getShareFormat(type);
+  const inner = {
+    x: format.padding,
+    y: format.padding,
+    width: format.width - format.padding * 2,
+    height: format.height - format.padding * 2
+  };
+  const header = { x: inner.x, y: inner.y, width: inner.width, height: format.header };
+  const footer = {
+    x: inner.x,
+    y: inner.y + inner.height - format.footer,
+    width: inner.width,
+    height: format.footer
+  };
+  const body = {
+    x: inner.x,
+    y: header.y + header.height,
+    width: inner.width,
+    height: footer.y - (header.y + header.height)
+  };
+  return { format, inner, header, body, footer };
+}
+
+/**
+ * 对超宽文字追加省略号。先保留可测量的前缀，确保 Canvas 绘制结果永远不越过给定宽度。
+ * @param {(text:string) => number} measureText 文字宽度测量函数。
+ * @param {*} text 待显示文本。
+ * @param {number} maxWidth 最大允许宽度。
+ * @returns {string} 可安全绘制的原文或省略文本。
+ */
+function ellipsizeText(measureText, text, maxWidth) {
+  const value = String(text == null ? '' : text);
+  const width = Math.max(0, Number(maxWidth) || 0);
+  if (measureText(value) <= width) return value;
+
+  const ellipsis = '…';
+  if (measureText(ellipsis) > width) return '';
+
+  let prefix = value;
+  while (prefix && measureText(prefix + ellipsis) > width) prefix = prefix.slice(0, -1);
+  return prefix + ellipsis;
+}
+
+/**
+ * 逐字符折行，使用索引推进而非 indexOf，因此重复字符不会导致后续文本被重新定位或遗漏。
+ * @param {(text:string) => number} measureText 文字宽度测量函数。
+ * @param {*} text 待折行文本。
+ * @param {number} maxWidth 单行最大宽度。
+ * @param {number} maxLines 最大行数。
+ * @returns {{lines:string[],truncated:boolean}} 折行结果及是否发生截断。
+ */
+function wrapText(measureText, text, maxWidth, maxLines) {
+  const value = String(text == null ? '' : text).trim();
+  const width = Math.max(0, Number(maxWidth) || 0);
+  const lineLimit = Math.max(1, Math.floor(Number(maxLines) || 1));
+  const lines = [];
+  let index = 0;
+
+  while (index < value.length && lines.length < lineLimit) {
+    let line = '';
+    while (index < value.length) {
+      const candidate = line + value[index];
+      if (line && measureText(candidate) > width) break;
+
+      if (!line && measureText(candidate) > width) {
+        // 单个字符已超过宽度时也必须推进索引，避免零宽或极窄区域陷入死循环。
+        line = ellipsizeText(measureText, candidate, width);
+        index += 1;
+        break;
+      }
+
+      line = candidate;
+      index += 1;
+    }
+    lines.push(line);
+  }
+
+  const truncated = index < value.length;
+  if (truncated && lines.length) {
+    lines[lines.length - 1] = ellipsizeText(measureText, lines[lines.length - 1] + value.slice(index), width);
+  }
+  return { lines, truncated };
+}
+
+/**
+ * 在一行内创建等宽指标卡片，间隙与高度均会压缩到边界内，防止导出尺寸变化时横向溢出。
+ * @param {{x:number,y:number,width:number,height:number}} bounds 正文安全区域。
+ * @param {number} columns 列数。
+ * @param {number} gap 期望列间距。
+ * @param {number} height 期望卡片高度。
+ * @returns {Array<{x:number,y:number,width:number,height:number}>} 等宽矩形列表。
+ */
+function createMetricGrid(bounds, columns, gap, height) {
+  const columnCount = Math.max(1, Math.floor(Number(columns) || 1));
+  const availableWidth = Math.max(0, Number(bounds.width) || 0);
+  const availableHeight = Math.max(0, Number(bounds.height) || 0);
+  const desiredGap = Math.max(0, Number(gap) || 0);
+  const maxGap = columnCount > 1 ? availableWidth / (columnCount - 1) : 0;
+  const actualGap = Math.min(desiredGap, maxGap);
+  const itemWidth = (availableWidth - actualGap * (columnCount - 1)) / columnCount;
+  const itemHeight = Math.min(Math.max(0, Number(height) || 0), availableHeight);
+  const items = [];
+
+  for (let index = 0; index < columnCount; index += 1) {
+    items.push({
+      x: (Number(bounds.x) || 0) + index * (itemWidth + actualGap),
+      y: Number(bounds.y) || 0,
+      width: itemWidth,
+      height: itemHeight
+    });
+  }
+  return items;
+}
+
+/**
+ * 根据可用宽高反推热力图正方形单元格。优先保留期望间隙，空间不足时缩小间隙以保证整数单元格完全落入边界。
+ * @param {{width:number,height:number}} bounds 热力图安全区域。
+ * @param {number} columns 热力图列数。
+ * @param {number} rows 热力图行数。
+ * @param {number} preferredGap 期望单元格间隙。
+ * @returns {{cell:number,gap:number,width:number,height:number}} 可绘制网格参数。
+ */
+function fitHeatmapGrid(bounds, columns, rows, preferredGap) {
+  const columnCount = Math.max(1, Math.floor(Number(columns) || 1));
+  const rowCount = Math.max(1, Math.floor(Number(rows) || 1));
+  const availableWidth = Math.max(0, Number(bounds.width) || 0);
+  const availableHeight = Math.max(0, Number(bounds.height) || 0);
+  const desiredGap = Math.max(0, Number(preferredGap) || 0);
+  const widthGapLimit = columnCount > 1 ? (availableWidth - columnCount) / (columnCount - 1) : desiredGap;
+  const heightGapLimit = rowCount > 1 ? (availableHeight - rowCount) / (rowCount - 1) : desiredGap;
+  let gap = Math.max(0, Math.min(desiredGap, widthGapLimit, heightGapLimit));
+  let cell = Math.floor(Math.min(
+    (availableWidth - gap * (columnCount - 1)) / columnCount,
+    (availableHeight - gap * (rowCount - 1)) / rowCount
+  ));
+
+  if (cell < 1) {
+    gap = 0;
+    cell = Math.floor(Math.min(availableWidth / columnCount, availableHeight / rowCount));
+  }
+  if (cell < 1) throw new RangeError('Heatmap bounds are too small for one cell');
+
+  return {
+    cell,
+    gap,
+    width: cell * columnCount + gap * (columnCount - 1),
+    height: cell * rowCount + gap * (rowCount - 1)
+  };
+}
+
+/**
+ * 按训练次数排序并规划排行行数；超出安全高度的条目合并为“其他”，以保证卡片内容永不压到页脚。
+ * @param {Array<[string,number]>} entries 部位及次数列表。
+ * @param {number} availableHeight 排行可用高度。
+ * @param {number} rowHeight 单行高度。
+ * @returns {Array<[string,number]>} 可直接绘制的排行条目。
+ */
+function planRankedItems(entries, availableHeight, rowHeight) {
+  const safeRowHeight = Math.max(1, Number(rowHeight) || 1);
+  const maxRows = Math.max(1, Math.floor(Math.max(0, Number(availableHeight) || 0) / safeRowHeight));
+  const ranked = (Array.isArray(entries) ? entries : []).map((entry, index) => [
+    entry[0],
+    Number(entry[1]) || 0,
+    index
+  ]).sort((left, right) => right[1] - left[1] || left[2] - right[2]);
+
+  if (!ranked.length) return [];
+  const total = ranked.reduce((sum, entry) => sum + entry[1], 0);
+  if (maxRows === 1) return [['其他', total]];
+  if (ranked.length <= maxRows) return ranked.map(entry => [entry[0], entry[1]]);
+
+  const visible = ranked.slice(0, maxRows - 1).map(entry => [entry[0], entry[1]]);
+  const hiddenTotal = ranked.slice(maxRows - 1).reduce((sum, entry) => sum + entry[1], 0);
+  visible.push(['其他', hiddenTotal]);
+  return visible;
+}
+
+/**
+ * 为旧版 Canvas 提供圆角路径回退。现代浏览器走 roundRect，兼容路径只追加到当前路径，由调用方决定何时 beginPath/stroke。
+ * @param {CanvasRenderingContext2D} ctx Canvas 上下文。
+ * @param {number} x 矩形左上角横坐标。
+ * @param {number} y 矩形左上角纵坐标。
+ * @param {number} width 矩形宽度。
+ * @param {number} height 矩形高度。
+ * @param {number} radius 圆角半径。
+ */
+function roundedRect(ctx, x, y, width, height, radius) {
+  const safeRadius = Math.max(0, Math.min(Number(radius) || 0, Math.abs(width) / 2, Math.abs(height) / 2));
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(x, y, width, height, safeRadius);
+    return;
+  }
+
+  const right = x + width;
+  const bottom = y + height;
+  ctx.moveTo(x + safeRadius, y);
+  ctx.lineTo(right - safeRadius, y);
+  ctx.quadraticCurveTo(right, y, right, y + safeRadius);
+  ctx.lineTo(right, bottom - safeRadius);
+  ctx.quadraticCurveTo(right, bottom, right - safeRadius, bottom);
+  ctx.lineTo(x + safeRadius, bottom);
+  ctx.quadraticCurveTo(x, bottom, x, bottom - safeRadius);
+  ctx.lineTo(x, y + safeRadius);
+  ctx.quadraticCurveTo(x, y, x + safeRadius, y);
+}
+// #endregion 分享布局工具
+
 function shareCheckinCard() {
   const S = 3, W = 375 * S;
   const cd = getTodayCycleDay(), today = new Date();
