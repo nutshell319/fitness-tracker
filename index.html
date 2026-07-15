@@ -1585,15 +1585,14 @@ function shareYearlyReport() {
   const S=3,W=400*S,H=600*S;const today=new Date();today.setHours(0,0,0,0);const year=today.getFullYear();
   const yearStart=new Date(year,0,1);const skipSet=new Set(getSkipDates());const checkinSet=getCheckinSet();
   let trainDays=0,skipDays=0;const muscleCount={};let bestMonth=0,bestMonthDays=0;const monthDays=new Array(12).fill(0);
-  const monthWeeks=Array.from({length:12},()=>[]); // monthWeeks[m] = [{w,days}] 每周训练天数
+  const monthWeeks=Array.from({length:12},()=>[]);
+  const cardioSetYr2=new Set(getCardioDates());
   const d=new Date(yearStart);
   while(d<=today){const ds=formatLocalDate(d);const mIdx=d.getMonth();
-    // 计算当月第几周（以每月第一个周一为第0周）
     const month1st=new Date(d.getFullYear(),mIdx,1);
-    const firstMon=new Date(month1st);firstMon.setDate(1-(month1st.getDay()===0?6:month1st.getDay()-1));
     const weekIdx=Math.floor((d.getDate()+month1st.getDay()-1)/7);
     if(!monthWeeks[mIdx][weekIdx])monthWeeks[mIdx][weekIdx]=0;
-    if(!skipSet.has(ds)&&checkinSet.has(ds)){
+    if(!skipSet.has(ds)&&(checkinSet.has(ds)||cardioSetYr2.has(ds))){
       trainDays++;monthDays[mIdx]++;monthWeeks[mIdx][weekIdx]++;
       if(monthDays[mIdx]>bestMonthDays){bestMonthDays=monthDays[mIdx];bestMonth=mIdx;}
       const cd=getCycleDayForDate(d);if(cd)for(const m of cd.muscles)muscleCount[m]=(muscleCount[m]||0)+1;
