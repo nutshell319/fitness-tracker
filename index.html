@@ -1376,7 +1376,7 @@ function shareCheckinCard() {
 
   // 双列动作列表（充分利用横向空间）
   const colW = (W - 80*S) / 2, leftX = 30*S, rightX = 30*S + colW + 20*S;
-  let col1Y = 328*S, col2Y = 328*S;
+  let col1Y = 342*S, col2Y = 342*S;
   ctx.font = (13*S) + 'px "Microsoft YaHei","PingFang SC",sans-serif';
   const maxPerCol = Math.ceil(exs.length / 2);
   for (let i = 0; i < exs.length; i++) {
@@ -1533,7 +1533,7 @@ function shareMonthlyReport() {
     ctx.fillStyle=cards[i].color;ctx.font='bold '+(20*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';
     ctx.textAlign='center';ctx.fillText(String(cards[i].num),cx+cardW/2,cardY+22*S);
     ctx.fillStyle='#a09d98';ctx.font=(10*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';ctx.fillText(cards[i].label,cx+cardW/2,cardY+36*S);}
-  const mc=6*S,mg=2*S,gridW2=7*(mc+mg)-mg,mx0M=(W-gridW2)/2,my0M=118*S,firstDow=monthStart.getDay();
+  const mc=9*S,mg=2*S,gridW2=7*(mc+mg)-mg,mx0M=(W-gridW2)/2,my0M=118*S,firstDow=monthStart.getDay();
   ctx.textAlign='left';ctx.fillStyle='#a09d98';ctx.font=(11*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';ctx.fillText('当月热力',mx0M,112*S);
   let miniD=new Date(monthStart),miniCol=firstDow===0?6:firstDow-1,miniRow=0;
   for(let i=0;i<totalDays;i++){const ds=formatLocalDate(miniD);let clr='rgba(255,255,255,0.04)';
@@ -1588,7 +1588,7 @@ function shareYearlyReport() {
     ctx.textAlign='center';ctx.fillText(String(cards[i].num),cx+cardW/2,cardY+28*S);
     ctx.fillStyle='#a09d98';ctx.font=(10*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';ctx.fillText(cards[i].label,cx+cardW/2,cardY+44*S);}
   ctx.textAlign='left';ctx.fillStyle='#a09d98';ctx.font=(11*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';ctx.fillText('年度热力全景',mx0Y,138*S);
-  const mc=4*S,mg=1*S,gridW3=7*(mc+mg)-mg,mx0Y=(W-gridW3)/2,my0=146*S;let d2=new Date(year,0,1);const fdow=d2.getDay();
+  const mc=5*S,mg=1*S,gridW3=7*(mc+mg)-mg,mx0Y=(W-gridW3)/2,my0=146*S;let d2=new Date(year,0,1);const fdow=d2.getDay();
   let col=fdow===0?6:fdow-1,row=0;
   while(d2<=today){const ds=formatLocalDate(d2);let clr='rgba(255,255,255,0.04)';
     if(skipSet.has(ds))clr='rgba(232,93,117,0.4)';else if(checkinSet.has(ds)){const cd=getCycleDayForDate(d2);clr=cd?(cd.colors?.[0]||cd.color||'#333'):'#333';}
@@ -1602,7 +1602,7 @@ function shareYearlyReport() {
     ctx.fillStyle=mColors[m]||"#6b6864";ctx.font=(10*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';ctx.fillText(mLabels[m]||m,20*S,mY2+7*S);
     ctx.fillStyle=mColors[m]||"#6b6864";ctx.beginPath();ctx.roundRect(20*S+lWY,mY2,barW,11*S,4*S);ctx.fill();
     ctx.fillStyle='#a09d98';ctx.fillText(cnt+'次 '+Math.round((cnt/totalM)*100)+'%',20*S+lWY+barW+6*S,mY2+7*S);mY2+=15*S;}
-  mY2+=8*S;const topMuscle=Object.entries(muscleCount).sort((a,b)=>b[1]-a[1])[0];ctx.textAlign='left';
+  mY2+=8*S;const topMuscle=entsY[0];ctx.textAlign='left';
   ctx.fillStyle='#a09d98';ctx.font=(12*S)+'px "Microsoft YaHei","PingFang SC",sans-serif';
   ctx.fillText('训练偏好：最爱练'+(topMuscle?mLabels[topMuscle[0]]||topMuscle[0]:'—')+' ❤️',20*S,mY2);mY2+=18*S;
   ctx.fillText('最努力月：'+(bestMonth+1)+'月（练了'+bestMonthDays+'天 🏆）',20*S,mY2);mY2+=18*S;
@@ -2539,7 +2539,7 @@ function shareHeatmap() {
   }
 
   // 图例
-  const legendY = tp + gridH + 10*S;
+  const legendY = tp + gridH + 18*S;
   ctx.fillStyle = '#6b6864'; ctx.font = (10*S) + 'px "Microsoft YaHei","PingFang SC",sans-serif';
   const legends = [
     {color:'#4ecdc4', label:'背'}, {color:'#ff6b35', label:'胸'}, {color:'#f0c040', label:'肩'},
