@@ -2395,15 +2395,25 @@ $('#saveStartDate').addEventListener('click', () => {
   }, '修改起始日期');
   localStorage.setItem(STORAGE_KEY, formatLocalDate(d));
   localStorage.removeItem(SKIP_KEY);
+  localStorage.removeItem(CARDIO_KEY);
+  // 清除旧日期的打卡和完成记录
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const k = localStorage.key(i);
+    if (k && (k.startsWith('ft_checkin_') || k.startsWith('ft_done_'))) localStorage.removeItem(k);
+  }
   renderAll();
-  showToast('✅ 起始日期已更新，跳过记录已清空');
+  showToast('✅ 起始日期已更新，跳过/有氧/打卡记录已清空');
 });
 // 清空所有数据
 $('#resetAllBtn').addEventListener('click', () => {
-  localStorage.removeItem(STORAGE_KEY);
-  localStorage.removeItem(SKIP_KEY);
-  localStorage.removeItem(CYCLE_STORAGE_KEY);
-  // 清除所有自定义计划（旧格式+新格式）
+  // 清除所有 ft_ 开头的 localStorage 数据
+  const toRemove = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith('ft_')) toRemove.push(k);
+  }
+  toRemove.forEach(k => localStorage.removeItem(k));
+  // 清除自定义计划
   for (let i = 0; i < 20; i++) localStorage.removeItem(CUSTOM_PLAN_PREFIX + 'day_' + i);
   ['back','chest','shoulder','abs','cardio','legs','arms'].forEach(m => localStorage.removeItem(CUSTOM_PLAN_PREFIX + m));
   clearUndo();
