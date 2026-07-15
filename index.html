@@ -1303,7 +1303,7 @@ function getTodayExercises() {
 // ── 分享日签卡片（Canvas 竖版 3:4 高清 PNG）──
 function shareCheckinCard() {
   const S = 3; // 3x 高清
-  const W = 375 * S, H = 540 * S; // 增高以容纳动作列表不重叠
+  const W = 375 * S, H = 560 * S; // 增高以容纳动作列表不重叠
   const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
   const cd = getTodayCycleDay();
@@ -1418,7 +1418,7 @@ function shareCheckinCard() {
 
 // ── 周报（横版 16:9 Canvas）──
 function shareWeeklyReport() {
-  const S = 3, W = 400*S, H = 260*S;
+  const S = 3, W = 400*S, H = 290*S;
   const today = new Date(); today.setHours(0,0,0,0);
   const dow = today.getDay();
   const mondayOffset = dow === 0 ? -6 : 1 - dow;
@@ -1500,7 +1500,7 @@ function shareWeeklyReport() {
 
 // ── 月报（横版 16:9 Canvas）──
 function shareMonthlyReport() {
-  const S=3,W=400*S,H=250*S; const today=new Date(); today.setHours(0,0,0,0);
+  const S=3,W=400*S,H=280*S; const today=new Date(); today.setHours(0,0,0,0);
   const monthStart=new Date(today.getFullYear(),today.getMonth(),1);
   const totalDays=Math.min(new Date(today.getFullYear(),today.getMonth()+1,0).getDate(),today.getDate());
   const skipSet=new Set(getSkipDates()); const cardioSetM=new Set(getCardioDates()); const checkinSet=getCheckinSet();
