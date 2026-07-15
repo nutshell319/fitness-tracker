@@ -1302,15 +1302,38 @@ function getTodayExercises() {
 // 分享日签（Phase 3 实现，此处占位）
 // ── 分享日签卡片（Canvas 竖版 3:4 高清 PNG）──
 function shareCheckinCard() {
-  const S = 3, W = 375 * S, H = 560 * S;
-  const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
-  const ctx = canvas.getContext('2d');
+  const S = 3, W = 375 * S;
   const cd = getTodayCycleDay();
   const today = new Date();
+  const exs = getTodayExercises();
+  const doneCount = exs.filter(e => isDone(e.id)).length;
+  const streak = isTodayCheckedIn() ? getCurrentStreak() : 0;
+  const dayColor = cd ? (cd.colors?.[0] || cd.color || '#ff6b35') : '#ff6b35';
+
+  // ── 测算阶段：用临时 canvas 量文字宽度 ──
+  const tmpCv = document.createElement('canvas'); tmpCv.width = 1; tmpCv.height = 1;
+  const tmpCtx = tmpCv.getContext('2d');
+  tmpCtx.font = (16*S) + 'px "Microsoft YaHei","PingFang SC",sans-serif';
+  const colW2 = (W - 80*S) / 2;
+  const maxPerCol2 = Math.ceil(exs.length / 2);
+  let col1H = 0, col2H = 0;
+  for (let i = 0; i < exs.length; i++) {
+    const name = exs[i].name;
+    let dn = name;
+    while (tmpCtx.measureText('✓ ' + dn).width > colW2 - 10*S && dn.length > 3) dn = dn.slice(0, -1);
+    if (i < maxPerCol2) col1H += 24*S; else col2H += 24*S;
+  }
+  const listH = Math.max(col1H, col2H);
+  const headerH = 228*S + 66*S + 34*S; // 激励语结束 + 统计+进度条
+  const contentH = headerH + listH + 64*S; // +底部标语/圆点/水印
+  const H = Math.max(contentH, 400*S); // 最小高度
+
+  const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
   const wd = ['日','一','二','三','四','五','六'];
   const dateStr = today.getFullYear() + '年' + (today.getMonth()+1) + '月' + today.getDate() + '日 星期' + wd[today.getDay()];
+  const bg = '#1e2127';
 
-  const bg = '#1e2127'; const dayColor = cd ? (cd.colors?.[0] || cd.color || '#ff6b35') : '#ff6b35';
   ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
   const glow = ctx.createRadialGradient(W/2, 90*S, 10*S, W/2, 90*S, 200*S);
   glow.addColorStop(0, dayColor + '33'); glow.addColorStop(1, 'transparent');
@@ -1330,7 +1353,6 @@ function shareCheckinCard() {
   ctx.fillText(dateStr, W/2, 146*S);
 
   // 连续打卡 + 激励语
-  const streak = isTodayCheckedIn() ? getCurrentStreak() : 0;
   ctx.fillStyle = '#ff6b35';
   ctx.font = 'bold ' + (38*S) + 'px "Microsoft YaHei","PingFang SC",sans-serif';
   ctx.fillText('🔥 ' + streak + ' 天连续', W/2, 206*S);
@@ -1344,9 +1366,7 @@ function shareCheckinCard() {
   ctx.fillText('"' + motivation + '"', W/2, curY + 28*S);
   curY += 66*S;
 
-  // ═══ 中部：统计 + 进度条 ═══
-  const exs = getTodayExercises();
-  const doneCount = exs.filter(e => isDone(e.id)).length;
+  // ═══ 统计 + 进度条 ═══
   const pct = exs.length > 0 ? doneCount/exs.length : 0;
   ctx.textAlign = 'left';
   ctx.fillStyle = '#e4e2df';
