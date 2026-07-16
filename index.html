@@ -1708,7 +1708,7 @@ function shareCheckinCard() {
   ctx.font = 'bold 42px "Microsoft YaHei","PingFang SC",sans-serif';
   ctx.fillText(`🔥 ${streak} 天连续`, width / 2, layout.header.y + 218);
 
-  const motivationBounds = { x: layout.body.x, y: layout.body.y + 20, width: layout.body.width, height: 132 };
+  const motivationBounds = { x: layout.body.x, y: layout.body.y + 12, width: layout.body.width, height: 96 };
   ctx.fillStyle = 'rgba(255,255,255,0.03)';
   ctx.beginPath();
   roundedRect(ctx, motivationBounds.x, motivationBounds.y, motivationBounds.width, motivationBounds.height, 18);
@@ -1719,66 +1719,113 @@ function shareCheckinCard() {
   roundedRect(ctx, motivationBounds.x, motivationBounds.y, motivationBounds.width, motivationBounds.height, 18);
   ctx.stroke();
   const motivation = cycleDay && cycleDay.motivation ? cycleDay.motivation : '坚持就是胜利！';
+  ctx.textAlign = 'center';
   ctx.fillStyle = '#c0bbb4';
-  ctx.font = '25px "Microsoft YaHei","PingFang SC",sans-serif';
+  ctx.font = '24px "Microsoft YaHei","PingFang SC",sans-serif';
   const motivationLines = wrapText(measure, `“${motivation}”`, motivationBounds.width - 72, 2).lines;
-  motivationLines.forEach((line, index) => ctx.fillText(line, width / 2, motivationBounds.y + 49 + index * 36));
+  motivationLines.forEach((line, index) => ctx.fillText(line, width / 2, motivationBounds.y + 42 + index * 30));
 
-  const progressY = layout.body.y + 202;
   const completion = exercises.length ? completedCount / exercises.length : 0;
+  const progressBounds = { x: layout.body.x, y: layout.body.y + 132, width: layout.body.width, height: 142 };
+  ctx.fillStyle = 'rgba(255,255,255,0.035)';
+  ctx.beginPath();
+  roundedRect(ctx, progressBounds.x, progressBounds.y, progressBounds.width, progressBounds.height, 18);
+  ctx.fill();
+  ctx.strokeStyle = '#2a2d36';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  roundedRect(ctx, progressBounds.x, progressBounds.y, progressBounds.width, progressBounds.height, 18);
+  ctx.stroke();
+
   ctx.textAlign = 'left';
-  ctx.fillStyle = '#e4e2df';
-  ctx.font = 'bold 28px "Microsoft YaHei","PingFang SC",sans-serif';
-  ctx.fillText(`今日动作 ${completedCount}/${exercises.length}`, layout.body.x, progressY);
-  ctx.textAlign = 'right';
   ctx.fillStyle = '#a09d98';
-  ctx.font = '22px "Microsoft YaHei","PingFang SC",sans-serif';
-  ctx.fillText(`${Math.round(completion * 100)}%`, layout.body.x + layout.body.width, progressY);
-  const progressBarY = progressY + 22;
+  ctx.font = '23px "Microsoft YaHei","PingFang SC",sans-serif';
+  ctx.fillText('今日进度', progressBounds.x + 28, progressBounds.y + 40);
+  ctx.fillStyle = '#e4e2df';
+  ctx.font = 'bold 42px "Microsoft YaHei","PingFang SC",sans-serif';
+  ctx.fillText(`${completedCount}/${exercises.length}`, progressBounds.x + 28, progressBounds.y + 90);
+  ctx.textAlign = 'right';
+  ctx.fillStyle = completion === 1 && exercises.length ? '#22c55e' : '#ff6b35';
+  ctx.font = 'bold 34px "Microsoft YaHei","PingFang SC",sans-serif';
+  ctx.fillText(`${Math.round(completion * 100)}%`, progressBounds.x + progressBounds.width - 28, progressBounds.y + 64);
+  const progressBarY = progressBounds.y + 108;
   ctx.fillStyle = '#121418';
   ctx.beginPath();
-  roundedRect(ctx, layout.body.x, progressBarY, layout.body.width, 14, 7);
+  roundedRect(ctx, progressBounds.x + 28, progressBarY, progressBounds.width - 56, 12, 6);
   ctx.fill();
   if (completion > 0) {
     ctx.fillStyle = '#22c55e';
     ctx.beginPath();
-    roundedRect(ctx, layout.body.x, progressBarY, Math.max(14, layout.body.width * completion), 14, 7);
+    roundedRect(ctx, progressBounds.x + 28, progressBarY, Math.max(12, (progressBounds.width - 56) * completion), 12, 6);
     ctx.fill();
   }
 
-  const actionRowHeight = 52;
-  const actionListY = layout.body.y + 292;
+  const actionRowHeight = 74;
+  const actionListY = progressBounds.y + progressBounds.height + 58;
+  const focusReserve = 96;
   const actionBounds = { x: layout.body.x, y: actionListY, width: layout.body.width, height: layout.footer.y - actionListY };
   const plannedActions = planRankedItems(
     exercises.map((exercise, index) => [String(index), exercises.length - index]),
     actionBounds.height,
     actionRowHeight,
-    54
+    focusReserve
   );
   ctx.textAlign = 'left';
   ctx.fillStyle = '#a09d98';
-  ctx.font = '24px "Microsoft YaHei","PingFang SC",sans-serif';
+  ctx.font = 'bold 24px "Microsoft YaHei","PingFang SC",sans-serif';
   ctx.fillText('今日计划', actionBounds.x, actionBounds.y - 18);
   if (!plannedActions.length && !exercises.length) {
-    ctx.fillStyle = '#6b6864';
+    ctx.fillStyle = 'rgba(255,255,255,0.035)';
+    ctx.beginPath();
+    roundedRect(ctx, actionBounds.x, actionBounds.y, actionBounds.width, actionRowHeight, 16);
+    ctx.fill();
+    ctx.fillStyle = '#a09d98';
     ctx.font = '24px "Microsoft YaHei","PingFang SC",sans-serif';
-    ctx.fillText('今天还没有安排动作', actionBounds.x, actionBounds.y + 34);
+    ctx.fillText('今天还没有安排动作，给身体一点恢复空间。', actionBounds.x + 28, actionBounds.y + 46);
   }
   plannedActions.forEach(([actionIndex], rowIndex) => {
     const y = actionBounds.y + rowIndex * actionRowHeight;
     const isOverflow = actionIndex === '其他';
     const exercise = isOverflow ? null : exercises[Number(actionIndex)];
     const done = Boolean(exercise && isDone(exercise.id));
-    ctx.font = '28px "Microsoft YaHei","PingFang SC",sans-serif';
+    ctx.fillStyle = done ? 'rgba(34,197,94,0.09)' : 'rgba(255,255,255,0.035)';
+    ctx.beginPath();
+    roundedRect(ctx, actionBounds.x, y, actionBounds.width, actionRowHeight, 16);
+    ctx.fill();
+    ctx.fillStyle = done ? '#22c55e' : '#3a3d47';
+    ctx.beginPath();
+    ctx.arc(actionBounds.x + 28, y + actionRowHeight / 2, 15, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.textAlign = 'center';
+    ctx.fillStyle = done ? '#10120f' : '#c0bbb4';
+    ctx.font = 'bold 18px "Microsoft YaHei","PingFang SC",sans-serif';
+    ctx.fillText(done ? '✓' : String(rowIndex + 1), actionBounds.x + 28, y + 43);
+    ctx.font = '26px "Microsoft YaHei","PingFang SC",sans-serif';
     const label = isOverflow
       ? `另 ${plannedActions.hiddenCount || 0} 项动作`
-      : ellipsizeText(measure, exercise ? exercise.name : '未命名动作', actionBounds.width - 70);
-    ctx.fillStyle = done ? '#22c55e' : '#6b6864';
-    ctx.font = '28px "Microsoft YaHei","PingFang SC",sans-serif';
-    ctx.fillText(done ? '✓' : '○', actionBounds.x, y + 32);
+      : ellipsizeText(measure, exercise ? exercise.name : '未命名动作', actionBounds.width - 220);
+    ctx.textAlign = 'left';
     ctx.fillStyle = isOverflow ? '#a09d98' : (done ? '#e4e2df' : '#c0bbb4');
-    ctx.fillText(label, actionBounds.x + 42, y + 32);
+    ctx.fillText(label, actionBounds.x + 64, y + 45);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = done ? '#22c55e' : '#a09d98';
+    ctx.font = '21px "Microsoft YaHei","PingFang SC",sans-serif';
+    ctx.fillText(isOverflow ? '已折叠' : (done ? '已完成' : '待完成'), actionBounds.x + actionBounds.width - 24, y + 44);
   });
+
+  const actionEndY = plannedActions.length
+    ? actionBounds.y + plannedActions.length * actionRowHeight
+    : actionBounds.y + actionRowHeight;
+  const focusText = !exercises.length
+    ? '今天没有固定计划，按自己的节奏活动一下。'
+    : (completion === 1 ? '今日计划已完成，记得适度拉伸和补水。' : '完成下一个动作，今天就会更进一步。');
+  const focusY = actionEndY + 48;
+  if (focusY + 24 <= layout.footer.y) {
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#6b6864';
+    ctx.font = '21px "Microsoft YaHei","PingFang SC",sans-serif';
+    ctx.fillText(ellipsizeText(measure, focusText, actionBounds.width - 64), width / 2, focusY);
+  }
 
   ctx.textAlign = 'center';
   ctx.strokeStyle = '#2a2d36';

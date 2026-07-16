@@ -303,6 +303,15 @@ function getRendererBody(source, name) {
   return source.slice(start, end);
 }
 
+function getMockFontSize(font) {
+  const match = /(\d+(?:\.\d+)?)px/.exec(String(font));
+  return match ? Number(match[1]) : 14;
+}
+
+function measureMockText(text, font) {
+  return Array.from(String(text)).length * getMockFontSize(font);
+}
+
 function createMockCanvasContext() {
   const fillRects = [];
   const roundRects = [];
@@ -316,8 +325,15 @@ function createMockCanvasContext() {
     textAlign: 'left',
     fillRect: (x, y, width, height) => fillRects.push({ x, y, width, height }),
     roundRect: (x, y, width, height, radius) => roundRects.push({ x, y, width, height, radius }),
-    fillText: (text, x, y) => texts.push({ text: String(text), x, y, fillStyle: context.fillStyle }),
-    measureText: text => ({ width: Array.from(String(text)).length * 14 }),
+    fillText: (text, x, y) => texts.push({
+      text: String(text),
+      x,
+      y,
+      fillStyle: context.fillStyle,
+      font: context.font,
+      textAlign: context.textAlign
+    }),
+    measureText: text => ({ width: measureMockText(text, context.font) }),
     beginPath: () => {},
     stroke: () => {},
     fill: () => {},
@@ -455,7 +471,8 @@ function assertPeriodicContentFitsFooter(canvas, layout) {
     }
   }
   for (const text of canvas.recorded.texts) {
-    if (text.text.includes('FitnessTracker')) {
+    const isFooterText = text.text.includes('FitnessTracker') || text.text === '每日打卡 · 成就更好的自己';
+    if (isFooterText) {
       assert.ok(text.y >= layout.footer.y && text.y <= layout.footer.y + layout.footer.height, '页脚文字必须位于页脚安全区');
     } else {
       assert.ok(text.y <= layout.footer.y, '正文文字不能侵入页脚');
@@ -480,7 +497,105 @@ test('日签渲染器在模拟画布中限制长文本动作并保留页脚', ()
   const actionTexts = canvas.recorded.texts.filter(text => text.y >= actionTextY && text.y < layout.footer.y);
   assert.ok(actionTexts.length > 0);
   assert.ok(actionTexts.every(text => text.y <= layout.footer.y - 54));
-  assert.ok(actionTexts.some(text => text.text === '另 4 项动作'));
+  assert.ok(actionTexts.some(text => text.text === '另 9 项动作'));
+});
+
+test('日签将进度与动作排成连续且清晰的卡片', () => {
+  const harness = createShareRendererHarness();
+  harness.shareCheckinCard();
+
+  const [canvas] = harness.canvases;
+  const layout = harness.createShareLayout('daily');
+  const progressCard = canvas.recorded.roundRects.find(rectangle =>
+    rectangle.x === layout.body.x &&
+    rectangle.y === layout.body.y + 132 &&
+    rectangle.width === layout.body.width &&
+    rectangle.height === 142
+  );
+  assert.ok(progressCard, '进度必须使用正文中的独立信息卡');
+
+  const motivationCard = canvas.recorded.roundRects.find(rectangle =>
+    rectangle.x === layout.body.x &&
+    rectangle.y === layout.body.y + 12 &&
+    rectangle.width === layout.body.width &&
+    rectangle.height === 96
+  );
+  assert.ok(motivationCard, '寄语必须使用紧凑的正文卡片');
+
+  const actionCards = canvas.recorded.roundRects.filter(rectangle =>
+    rectangle.x === layout.body.x &&
+    rectangle.width === layout.body.width &&
+    rectangle.height === 74 &&
+    rectangle.y > progressCard.y
+  );
+  assert.ok(actionCards.length > 0, '今日计划必须使用动作卡片而非项目符号');
+  assert.equal(actionCards[0].y - (progressCard.y + progressCard.height), 58, '首个动作卡必须与进度卡保持固定紧凑间距');
+  assert.ok(actionCards.every(rectangle => rectangle.y + rectangle.height <= layout.footer.y - 84), '动作卡片必须为底部提示和页脚预留空间');
+
+  const bodyTexts = canvas.recorded.texts.filter(text => text.y >= layout.body.y && text.y < layout.footer.y);
+  assert.ok(bodyTexts.some(text => text.text === '已完成'));
+  assert.ok(bodyTexts.some(text => text.text === '待完成'));
+  const overflowLabel = bodyTexts.find(text => text.text === '另 9 项动作');
+  assert.ok(overflowLabel, '折叠动作必须显示准确数量');
+  const overflowStatus = bodyTexts.find(text => text.text === '已折叠');
+  assert.ok(overflowStatus, '折叠动作必须显示明确状态');
+  assert.equal(overflowStatus.x, layout.body.x + layout.body.width - 24, '折叠状态必须位于动作卡右侧');
+  assert.equal(overflowStatus.y, overflowLabel.y - 1, '折叠状态必须与聚合行动作对齐');
+  assert.ok(!bodyTexts.some(text => text.text === '查看计划'));
+  const focusText = bodyTexts.find(text => text.text === '完成下一个动作，今天就会更进一步。');
+  assert.ok(focusText, '有可用空间时必须绘制焦点提示');
+  assert.ok(focusText.y <= layout.footer.y - 24, '焦点提示基线必须至少距页脚 24px');
+  assertCanvasCoordinates(canvas);
+  assertPeriodicContentFitsFooter(canvas, layout);
+});
+
+test('日签无动作时显示中性空态并保留页脚', () => {
+  const harness = createShareRendererHarness(new Date(2026, 7, 31), {
+    getTodayExercises: () => []
+  });
+  harness.shareCheckinCard();
+
+  const [canvas] = harness.canvases;
+  const layout = harness.createShareLayout('daily');
+  const bodyTexts = canvas.recorded.texts.filter(text => text.y >= layout.body.y && text.y < layout.footer.y);
+  const emptyCard = canvas.recorded.roundRects.find(rectangle =>
+    rectangle.x === layout.body.x &&
+    rectangle.y === layout.body.y + 332 &&
+    rectangle.width === layout.body.width &&
+    rectangle.height === 74
+  );
+  assert.ok(emptyCard, '无动作时必须绘制中性空态卡片');
+  assert.ok(bodyTexts.some(text => text.text === '今天还没有安排动作，给身体一点恢复空间。'));
+  assert.ok(!bodyTexts.some(text => /^另 \d+ 项动作$/.test(text.text)));
+  assertCanvasCoordinates(canvas);
+  assertPeriodicContentFitsFooter(canvas, layout);
+});
+
+test('日签会省略超长动作名称并保持正文安全边界', () => {
+  const longExerciseName = '高强度全身训练动作名称验证文字溢出后必须被省略显示'.repeat(4);
+  const harness = createShareRendererHarness(new Date(2026, 7, 31), {
+    getTodayExercises: () => [{ id: 'long-exercise-1', name: longExerciseName }]
+  });
+  harness.shareCheckinCard();
+
+  const [canvas] = harness.canvases;
+  const layout = harness.createShareLayout('daily');
+  const labelWidth = layout.body.width - 220;
+  assert.ok(measureMockText(longExerciseName, '26px "Microsoft YaHei"') > labelWidth, '长文本夹具必须超过动作标签可用宽度');
+  const actionText = canvas.recorded.texts.find(text =>
+    text.y >= layout.body.y + 332 &&
+    text.y < layout.footer.y &&
+    text.font === '26px "Microsoft YaHei","PingFang SC",sans-serif' &&
+    text.text.endsWith('…')
+  );
+  assert.ok(actionText, '超长动作名称必须以省略号结尾');
+  assert.ok(measureMockText(actionText.text, actionText.font) <= labelWidth, '动作名称必须按实际 26px 字体测量后省略');
+  const statusText = canvas.recorded.texts.find(text => text.text === '待完成');
+  assert.ok(statusText, '动作卡必须绘制右侧状态');
+  const statusReservedX = statusText.x - measureMockText(statusText.text, statusText.font);
+  assert.ok(actionText.x + measureMockText(actionText.text, actionText.font) <= statusReservedX, '动作名称右缘不得侵入右侧状态预留区');
+  assertCanvasCoordinates(canvas);
+  assertPeriodicContentFitsFooter(canvas, layout);
 });
 
 test('周报渲染器在模拟画布中绘制固定指标、内容与页脚', () => {
