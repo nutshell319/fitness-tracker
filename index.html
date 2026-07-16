@@ -712,32 +712,40 @@ function computeYearlyStats() {
   const cardioRaw = localStorage.getItem('ft_cardio_dates');
   const skipArr = skipRaw ? JSON.parse(skipRaw) : [];
   const cardioArr = cardioRaw ? JSON.parse(cardioRaw) : [];
-  let trainDays = 0, skipDays = 0;
+  let trainDays = 0, skipDays = 0, totalD = 0;
+  let currentStreak = 0, longestStreak = 0;
   const muscleCount = {};
   const monthDays = new Array(12).fill(0);
   const monthWeeks = Array.from({length: 12}, () => []);
   let bestMonth = 0, bestMonthDays = 0;
   const d = new Date(yearStart);
   while (d <= today) {
+    // 逐日累加而不是使用毫秒差，避免夏令时切换导致年度天数多算或少算一天。
+    totalD++;
     const ds = formatLocalDate(d);
     const mIdx = d.getMonth();
     const month1st = new Date(d.getFullYear(), mIdx, 1);
     const weekIdx = Math.floor((d.getDate() + month1st.getDay() - 1) / 7);
     if (!monthWeeks[mIdx][weekIdx]) monthWeeks[mIdx][weekIdx] = 0;
-    if (d < trainStart) { d.setDate(d.getDate() + 1); continue; } // 训练开始前全部跳过
+    if (d < trainStart) {
+      currentStreak = 0;
+      d.setDate(d.getDate() + 1);
+      continue;
+    } // 训练开始前不应计入当年连续训练。
     const isSkip = skipArr.includes(ds);
     const isCardio = cardioArr.includes(ds);
-    if (isSkip) { skipDays++; }
+    if (isSkip) { skipDays++; currentStreak = 0; }
     else {
       trainDays++; monthDays[mIdx]++; monthWeeks[mIdx][weekIdx]++;
+      currentStreak++;
+      if (currentStreak > longestStreak) longestStreak = currentStreak;
       if (monthDays[mIdx] > bestMonthDays) { bestMonthDays = monthDays[mIdx]; bestMonth = mIdx; }
       if (isCardio) muscleCount['cardio'] = (muscleCount['cardio'] || 0) + 1;
       else { const cd = getCycleDayForDate(d); if (cd) for (const m of cd.muscles) muscleCount[m] = (muscleCount[m] || 0) + 1; }
     }
     d.setDate(d.getDate() + 1);
   }
-  const totalD = Math.ceil((today - yearStart) / 86400000) + 1;
-  return { trainDays, skipDays, totalD, muscleCount, monthDays, monthWeeks, bestMonth, bestMonthDays };
+  return { trainDays, skipDays, totalD, longestStreak, muscleCount, monthDays, monthWeeks, bestMonth, bestMonthDays };
 }
 function getCurrentStreak() {
   const start = getStartDate();
@@ -2035,7 +2043,7 @@ function shareYearlyReport() {
     { num: stats.trainDays, label: '训练天数', color: '#ff6b35' },
     { num: stats.skipDays, label: '跳过天数', color: '#e85d75' },
     { num: stats.totalD ? Math.round(stats.trainDays / stats.totalD * 100) : 0, label: '出勤率 %', color: '#22c55e' },
-    { num: getLongestStreak(), label: '最长连续', color: '#a78bfa' }
+    { num: stats.longestStreak, label: '当年最长连续', color: '#a78bfa' }
   ];
   const metricBounds = { x: layout.body.x, y: layout.body.y + 12, width: layout.body.width, height: 128 };
   drawMetricCards(ctx, metricBounds, metrics);
@@ -2109,11 +2117,11 @@ function shareYearlyReport() {
 
   const sortedMuscles = Object.entries(stats.muscleCount).sort((left, right) => right[1] - left[1]);
   const topMuscle = sortedMuscles[0];
-  const summaryItems = [
+  const summaryItems = stats.trainDays > 0 ? [
     `训练偏好：最常训练${topMuscle ? (labels[topMuscle[0]] || topMuscle[0]) : '未记录部位'}`,
     `最努力月份：${stats.bestMonth + 1} 月完成 ${stats.bestMonthDays} 天训练`,
     `训练起始：${getStartDate().getFullYear()} 年 ${getStartDate().getMonth() + 1} 月 ${getStartDate().getDate()} 日`
-  ];
+  ] : ['本年度暂未记录训练，随时开始第一天。'];
   const summaryY = layout.body.y + 742;
   ctx.fillStyle = '#c0bbb4';
   ctx.font = '21px "Microsoft YaHei","PingFang SC",sans-serif';
@@ -2987,12 +2995,15 @@ function shareHeatmap() {
   const start = getStartDate();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  const yearStart = new Date(today.getFullYear(), 0, 1);
+  const yearEnd = new Date(today.getFullYear(), 11, 31);
+  const statsStart = start > yearStart ? new Date(start) : new Date(yearStart);
   const skipSet = new Set(getSkipDates());
   const cycle = getCycle();
   const cardioSet = new Set(getCardioDates());
   let trainDays = 0;
   let skipDays = 0;
-  const statsCursor = new Date(start);
+  const statsCursor = new Date(statsStart);
   while (statsCursor <= today) {
     if (skipSet.has(formatLocalDate(statsCursor))) skipDays += 1;
     else trainDays += 1;
@@ -3000,15 +3011,13 @@ function shareHeatmap() {
   }
   let streak = 0;
   const streakCursor = new Date(today);
-  while (streakCursor >= start) {
+  while (streakCursor >= statsStart) {
     if (skipSet.has(formatLocalDate(streakCursor))) break;
     streak += 1;
     streakCursor.setDate(streakCursor.getDate() - 1);
   }
 
   // 网格边界固定为当前自然年的周一至周日，年初/年末的补位格也保留其位置。
-  const yearStart = new Date(today.getFullYear(), 0, 1);
-  const yearEnd = new Date(today.getFullYear(), 11, 31);
   const gridStart = new Date(yearStart);
   gridStart.setDate(gridStart.getDate() - ((gridStart.getDay() + 6) % 7));
   const gridEnd = new Date(yearEnd);
@@ -3083,7 +3092,14 @@ function shareHeatmap() {
       else {
         const cycleIndex = getCycleDayIndexForDate(date);
         const cycleDay = cycleIndex >= 0 ? cycle[cycleIndex] : null;
-        ctx.fillStyle = cycleDay ? (cycleDay.colors?.[0] || cycleDay.color || '#333') : '#333';
+        if (cycleDay && cycleDay.colors && cycleDay.colors.length > 1) {
+          const gradient = ctx.createLinearGradient(x, y, x + heatmap.cell, y + heatmap.cell);
+          gradient.addColorStop(0, cycleDay.colors[0]);
+          gradient.addColorStop(1, cycleDay.colors[1] || cycleDay.colors[0]);
+          ctx.fillStyle = gradient;
+        } else {
+          ctx.fillStyle = cycleDay ? (cycleDay.colors?.[0] || cycleDay.color || '#333') : '#333';
+        }
       }
       ctx.beginPath();
       roundedRect(ctx, x, y, heatmap.cell, heatmap.cell, 6);

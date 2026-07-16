@@ -42,6 +42,50 @@ function loadShareLayout() {
   return layout;
 }
 
+/** 只加载年度统计函数，便于在不依赖浏览器 DOM 的情况下验证日期边界。 */
+function loadYearlyStats(sandbox) {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const start = source.indexOf('function computeYearlyStats() {');
+  const end = source.indexOf('\nfunction getCurrentStreak()', start);
+  assert.notEqual(start, -1, '未找到年度统计函数');
+  assert.notEqual(end, -1, '未找到年度统计函数结束边界');
+  vm.runInNewContext(`${source.slice(start, end)}\n;globalThis.__yearlyStats = computeYearlyStats;`, sandbox, {
+    filename: 'yearly-stats.js'
+  });
+  return sandbox.__yearlyStats;
+}
+
+/** 构造在给定转折日后额外增加一小时的本地日期，用于模拟夏令时结束的时间差。 */
+function createDstShiftDate(fixedDate, transitionDate) {
+  const RealDate = Date;
+  function DstShiftDate(...args) {
+    if (!new.target) return new RealDate(fixedDate.getTime()).toString();
+    if (!args.length) this.value = new RealDate(fixedDate.getTime());
+    else if (args.length === 1 && args[0] instanceof DstShiftDate) this.value = new RealDate(args[0].value.getTime());
+    else this.value = new RealDate(...args);
+  }
+  DstShiftDate.prototype.getFullYear = function() { return this.value.getFullYear(); };
+  DstShiftDate.prototype.getMonth = function() { return this.value.getMonth(); };
+  DstShiftDate.prototype.getDate = function() { return this.value.getDate(); };
+  DstShiftDate.prototype.getDay = function() { return this.value.getDay(); };
+  DstShiftDate.prototype.setHours = function(...args) { return this.value.setHours(...args); };
+  DstShiftDate.prototype.setDate = function(...args) { return this.value.setDate(...args); };
+  DstShiftDate.prototype.valueOf = function() {
+    return this.value.getTime() + (this.value >= transitionDate ? 60 * 60 * 1000 : 0);
+  };
+  return DstShiftDate;
+}
+
+function countCalendarDays(start, end) {
+  const cursor = new Date(start);
+  let count = 0;
+  while (cursor <= end) {
+    count += 1;
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return count;
+}
+
 test('分享布局工具公开所需 API 且定义五种画布尺寸', () => {
   const layout = loadShareLayout();
   const expectedFormats = {
@@ -263,6 +307,7 @@ function createMockCanvasContext() {
   const fillRects = [];
   const roundRects = [];
   const texts = [];
+  const linearGradients = [];
   const context = {
     fillStyle: '',
     strokeStyle: '',
@@ -271,7 +316,7 @@ function createMockCanvasContext() {
     textAlign: 'left',
     fillRect: (x, y, width, height) => fillRects.push({ x, y, width, height }),
     roundRect: (x, y, width, height, radius) => roundRects.push({ x, y, width, height, radius }),
-    fillText: (text, x, y) => texts.push({ text: String(text), x, y }),
+    fillText: (text, x, y) => texts.push({ text: String(text), x, y, fillStyle: context.fillStyle }),
     measureText: text => ({ width: Array.from(String(text)).length * 14 }),
     beginPath: () => {},
     stroke: () => {},
@@ -280,9 +325,14 @@ function createMockCanvasContext() {
     lineTo: () => {},
     quadraticCurveTo: () => {},
     arc: () => {},
+    createLinearGradient: (...args) => {
+      const gradient = { args, stops: [] };
+      linearGradients.push(gradient);
+      return { addColorStop: (offset, color) => gradient.stops.push({ offset, color }) };
+    },
     createRadialGradient: () => ({ addColorStop: () => {} })
   };
-  return { context, fillRects, roundRects, texts };
+  return { context, fillRects, roundRects, texts, linearGradients };
 }
 
 function createFixedDateConstructor(fixedDate) {
@@ -298,7 +348,7 @@ function createFixedDateConstructor(fixedDate) {
   return FixedDate;
 }
 
-function createShareRendererHarness(fixedDate = new Date(2026, 7, 31)) {
+function createShareRendererHarness(fixedDate = new Date(2026, 7, 31), overrides = {}) {
   const source = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   const start = source.indexOf('const SHARE_FORMATS');
   const end = source.indexOf('\nfunction getMotivation(', start);
@@ -369,12 +419,14 @@ function createShareRendererHarness(fixedDate = new Date(2026, 7, 31)) {
       trainDays: 112,
       skipDays: 11,
       totalD: 243,
+      longestStreak: 17,
       monthWeeks: Array.from({ length: 12 }, (_, month) => Array.from({ length: 5 }, (_, week) => (month + week) % 4)),
       muscleCount: { back: 27, chest: 23, shoulder: 18, abs: 15, legs: 12, arms: 9, cardio: 6 },
       bestMonth: 7,
       bestMonthDays: 18
     }),
-    showSharePreview: (canvas, title, filename) => previews.push({ canvas, title, filename })
+    showSharePreview: (canvas, title, filename) => previews.push({ canvas, title, filename }),
+    ...overrides
   };
   const code = source.slice(start, end) + '\n' + source.slice(heatmapStart, heatmapEnd);
   vm.runInNewContext(`${code}\n;globalThis.__shareRenderers = { createShareLayout, shareCheckinCard, shareWeeklyReport, shareMonthlyReport, shareYearlyReport, shareHeatmap };`, sandbox, {
@@ -530,4 +582,116 @@ test('热力图渲染器固定导出当前自然年 53 周并将网格限制在�
   assert.ok(cells.every(cell => cell.x >= bounds.x && cell.x + cell.width <= bounds.x + bounds.width));
   assert.ok(cells.every(cell => cell.y >= bounds.y && cell.y + cell.height <= bounds.y + bounds.height));
   assertCanvasCoordinates(canvas);
+});
+
+test('年度统计按日历循环计算总天数，不受夏令时结束额外一小时影响', () => {
+  const fixedDate = new Date(2026, 10, 2);
+  const DstShiftDate = createDstShiftDate(fixedDate, new Date(2026, 6, 1));
+  const computeYearlyStats = loadYearlyStats({
+    Date: DstShiftDate,
+    localStorage: { getItem: () => null },
+    getStartDate: () => new DstShiftDate(2026, 0, 1),
+    formatLocalDate: date => `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`,
+    getCycleDayForDate: () => null
+  });
+
+  const stats = computeYearlyStats();
+  const expectedDays = countCalendarDays(new Date(2026, 0, 1), fixedDate);
+  assert.equal(stats.totalD, expectedDays);
+  assert.equal(stats.trainDays, expectedDays);
+});
+
+test('年报最长连续指标使用当年统计值而非历史纪录', () => {
+  const harness = createShareRendererHarness(new Date(2026, 7, 31), {
+    getLongestStreak: () => 999,
+    computeYearlyStats: () => ({
+      trainDays: 112,
+      skipDays: 11,
+      totalD: 243,
+      longestStreak: 8,
+      monthWeeks: Array.from({ length: 12 }, () => [1, 1, 1, 1, 1]),
+      muscleCount: { back: 27 },
+      bestMonth: 7,
+      bestMonthDays: 18
+    })
+  });
+  harness.shareYearlyReport();
+
+  const metricValues = harness.canvases[0].recorded.texts
+    .filter(text => text.fillStyle === '#a78bfa')
+    .map(text => text.text);
+  assert.ok(metricValues.includes('8'));
+  assert.ok(!metricValues.includes('999'));
+});
+
+test('无训练年度显示中性提示而不把一月标成最努力月份', () => {
+  const harness = createShareRendererHarness(new Date(2026, 7, 31), {
+    computeYearlyStats: () => ({
+      trainDays: 0,
+      skipDays: 0,
+      totalD: 243,
+      longestStreak: 0,
+      monthWeeks: Array.from({ length: 12 }, () => []),
+      muscleCount: {},
+      bestMonth: 0,
+      bestMonthDays: 0
+    })
+  });
+  harness.shareYearlyReport();
+
+  const texts = harness.canvases[0].recorded.texts.map(text => text.text);
+  assert.ok(texts.includes('本年度暂未记录训练，随时开始第一天。'));
+  assert.ok(!texts.some(text => text.includes('最努力月份：1 月')));
+});
+
+test('热力图统计限定当前自然年，即使训练开始日期位于更早年份', () => {
+  const harness = createShareRendererHarness(new Date(2026, 7, 31), {
+    getStartDate: () => new Date(2024, 0, 1),
+    getSkipDates: () => ['2024-01-10'],
+    getCardioDates: () => []
+  });
+  harness.shareHeatmap();
+
+  const stats = harness.canvases[0].recorded.texts;
+  assert.ok(stats.some(text => text.text === '243' && text.fillStyle === '#ff6b35'));
+  assert.ok(stats.some(text => text.text === '0' && text.fillStyle === '#e85d75'));
+  assert.ok(stats.some(text => text.text === '243' && text.fillStyle === '#4ecdc4'));
+});
+
+test('热力图为双色训练计划创建并填充线性渐变', () => {
+  const harness = createShareRendererHarness(new Date(2026, 7, 31), {
+    getCycle: () => [{ colors: ['#112233', '#445566'], color: '#112233' }]
+  });
+  harness.shareHeatmap();
+
+  const gradients = harness.canvases[0].recorded.linearGradients;
+  assert.ok(gradients.length > 0);
+  assert.deepEqual(gradients[0].stops, [
+    { offset: 0, color: '#112233' },
+    { offset: 1, color: '#445566' }
+  ]);
+});
+
+test('闰年周日开始的当前自然年生成 54 列热力图且所有单元格位于安全边界内', () => {
+  const harness = createShareRendererHarness(new Date(2012, 11, 31), {
+    getStartDate: () => new Date(2012, 0, 1),
+    getSkipDates: () => [],
+    getCardioDates: () => []
+  });
+  harness.shareHeatmap();
+
+  const layout = harness.createShareLayout('heatmap');
+  const bounds = {
+    x: layout.body.x,
+    y: layout.body.y + 92,
+    width: layout.body.width,
+    height: layout.body.height - 172
+  };
+  const grid = loadShareLayout().fitHeatmapGrid(bounds, 54, 7, 4);
+  const cells = harness.canvases[0].recorded.roundRects
+    .filter(rectangle => rectangle.width === grid.cell && rectangle.height === grid.cell && rectangle.radius === 6);
+
+  assert.equal(cells.length, 54 * 7);
+  assert.ok(cells.every(cell => cell.x >= bounds.x && cell.x + cell.width <= bounds.x + bounds.width));
+  assert.ok(cells.every(cell => cell.y >= bounds.y && cell.y + cell.height <= bounds.y + bounds.height));
 });
