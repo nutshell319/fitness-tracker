@@ -1931,7 +1931,10 @@ function shareMonthlyReport() {
   drawMetricCards(ctx, metricBounds, metrics);
 
   const calendarBounds = { x: layout.body.x, y: layout.body.y + 200, width: 560, height: 248 };
-  const heatmap = fitHeatmapGrid(calendarBounds, 7, 6, 10);
+  const firstColumn = (monthStart.getDay() + 6) % 7;
+  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+  const heatmapRows = Math.max(1, Math.ceil((firstColumn + daysInMonth) / 7));
+  const heatmap = fitHeatmapGrid(calendarBounds, 7, heatmapRows, 10);
   const calendarX = calendarBounds.x + (calendarBounds.width - heatmap.width) / 2;
   const calendarY = calendarBounds.y;
   const weekLabels = ['一', '二', '三', '四', '五', '六', '日'];
@@ -1945,8 +1948,6 @@ function shareMonthlyReport() {
     ctx.fillText(weekLabels[column], calendarX + column * (heatmap.cell + heatmap.gap) + heatmap.cell / 2, calendarY - 4);
   }
   const statusByDate = new Map(stats.dailyStatus.map(status => [status.ds, status]));
-  const firstColumn = (monthStart.getDay() + 6) % 7;
-  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
   for (let day = 1; day <= daysInMonth; day += 1) {
     const date = new Date(today.getFullYear(), today.getMonth(), day);
     const cellIndex = firstColumn + day - 1;
