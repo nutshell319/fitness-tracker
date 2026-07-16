@@ -106,15 +106,15 @@ test('五种分享卡片渲染器均通过 roundedRect 创建圆角路径', () =
   }
 });
 
-test('热力图外框通过 roundedRect 绘制而非手工 arcTo 序列', () => {
+test('热力图导出复用统一画布外框而非手工 arcTo 序列', () => {
   const source = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   const start = source.indexOf('function shareHeatmap() {');
   assert.notEqual(start, -1, '未找到热力图分享渲染器');
   const end = source.indexOf('</script>', start);
   const body = source.slice(start, end);
 
-  assert.match(body, /ctx\.beginPath\(\);\s*roundedRect\(ctx,\s*0,\s*0,\s*cw,\s*ch,\s*cr\);\s*ctx\.fill\(\);/);
-  assert.doesNotMatch(body, /ctx\.moveTo\(cr, 0\);[\s\S]*ctx\.arcTo\(0, 0, cr, 0, cr\);\s*ctx\.closePath\(\);\s*ctx\.fill\(\);/);
+  assert.match(body, /drawShareCanvas\('heatmap'\)/);
+  assert.doesNotMatch(body, /ctx\.arcTo\(/);
 });
 
 test('指标网格的所有矩形均位于周报正文安全区域内', () => {
@@ -141,6 +141,24 @@ test('热力图网格在安全区域内保留正单元格与间隙', () => {
   assert.ok(grid.width <= body.width);
   assert.ok(grid.height <= body.height);
   assert.ok(grid.cell + grid.gap > grid.cell);
+});
+
+test('当前自然年 53 列热力图在导出正文指定区域内居中且完整落入底边界', () => {
+  const layout = loadShareLayout();
+  const body = layout.createShareLayout('heatmap').body;
+  const bounds = {
+    x: body.x,
+    y: body.y + 92,
+    width: body.width,
+    height: body.height - 172
+  };
+  const grid = layout.fitHeatmapGrid(bounds, 53, 7, 4);
+  const gridX = bounds.x + (bounds.width - grid.width) / 2;
+
+  assert.ok(grid.cell > 0);
+  assert.ok(gridX >= bounds.x);
+  assert.ok(gridX + grid.width <= bounds.x + bounds.width);
+  assert.ok(bounds.y + grid.height <= bounds.y + bounds.height);
 });
 
 test('长训练寄语换为两行且最后一行以省略号截断', () => {
@@ -283,9 +301,13 @@ function createFixedDateConstructor(fixedDate) {
 function createShareRendererHarness(fixedDate = new Date(2026, 7, 31)) {
   const source = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   const start = source.indexOf('const SHARE_FORMATS');
-  const end = source.indexOf('\nfunction shareYearlyReport()', start);
+  const end = source.indexOf('\nfunction getMotivation(', start);
+  const heatmapStart = source.indexOf('function shareHeatmap() {');
+  const heatmapEnd = source.indexOf('\nupdateSettingsUI();', heatmapStart);
   assert.notEqual(start, -1, '未找到分享格式定义');
-  assert.notEqual(end, -1, '未找到年报渲染器边界');
+  assert.notEqual(end, -1, '未找到分享渲染器边界');
+  assert.notEqual(heatmapStart, -1, '未找到热力图渲染器边界');
+  assert.notEqual(heatmapEnd, -1, '未找到热力图渲染器结束边界');
 
   const canvases = [];
   const previews = [];
@@ -328,6 +350,12 @@ function createShareRendererHarness(fixedDate = new Date(2026, 7, 31)) {
     isTodayCheckedIn: () => true,
     getCurrentStreak: () => 12,
     getLongestStreak: () => 24,
+    getStartDate: () => new Date(2026, 2, 12),
+    getSkipDates: () => ['2026-03-18', '2026-05-12', '2026-08-21'],
+    getCardioDates: () => ['2026-04-06', '2026-06-08'],
+    getCycle: () => [{ colors: ['#4ecdc4'], color: '#4ecdc4' }],
+    getCycleDayIndexForDate: () => 0,
+    getEarnedBadges: () => [{ id: 'badge-1' }, { id: 'badge-2' }],
     formatLocalDate,
     getCycleDayForDate: () => ({ colors: ['#a78bfa'], color: '#a78bfa' }),
     computeStats: () => ({
@@ -337,10 +365,19 @@ function createShareRendererHarness(fixedDate = new Date(2026, 7, 31)) {
       muscleCount: { back: 7, chest: 6, shoulder: 5, abs: 4, legs: 3, arms: 2, cardio: 1 },
       dailyStatus
     }),
+    computeYearlyStats: () => ({
+      trainDays: 112,
+      skipDays: 11,
+      totalD: 243,
+      monthWeeks: Array.from({ length: 12 }, (_, month) => Array.from({ length: 5 }, (_, week) => (month + week) % 4)),
+      muscleCount: { back: 27, chest: 23, shoulder: 18, abs: 15, legs: 12, arms: 9, cardio: 6 },
+      bestMonth: 7,
+      bestMonthDays: 18
+    }),
     showSharePreview: (canvas, title, filename) => previews.push({ canvas, title, filename })
   };
-  const code = source.slice(start, end);
-  vm.runInNewContext(`${code}\n;globalThis.__shareRenderers = { createShareLayout, shareCheckinCard, shareWeeklyReport, shareMonthlyReport };`, sandbox, {
+  const code = source.slice(start, end) + '\n' + source.slice(heatmapStart, heatmapEnd);
+  vm.runInNewContext(`${code}\n;globalThis.__shareRenderers = { createShareLayout, shareCheckinCard, shareWeeklyReport, shareMonthlyReport, shareYearlyReport, shareHeatmap };`, sandbox, {
     filename: 'share-renderers.js'
   });
   return { ...sandbox.__shareRenderers, canvases, previews };
@@ -445,4 +482,52 @@ test('月报热力图按实际日历周数布局，覆盖周日开始的二月',
   const firstColumn = (sundayStartFebruary.getDay() + 6) % 7;
   const daysInMonth = new Date(2026, 2, 0).getDate();
   assert.equal(Math.ceil((firstColumn + daysInMonth) / 7), 5);
+});
+
+test('年报渲染器在模拟画布中使用纵向安全布局并保留预览文件名', () => {
+  const harness = createShareRendererHarness(new Date(2026, 7, 31));
+  harness.shareYearlyReport();
+
+  const [canvas] = harness.canvases;
+  const [preview] = harness.previews;
+  const layout = harness.createShareLayout('yearly');
+  assert.equal(canvas.width, 1080);
+  assert.equal(canvas.height, 1440);
+  assert.equal(preview.canvas, canvas);
+  assert.equal(preview.filename, 'FitnessTracker-Yearly-2026.png');
+  assert.equal(canvas.recorded.roundRects.filter(rectangle => rectangle.y === layout.body.y + 12 && rectangle.height === 128).length, 4);
+  assertCanvasCoordinates(canvas);
+
+  const overviewBounds = { x: layout.body.x, y: layout.body.y + 206, width: layout.body.width, height: 238 };
+  const overviewCells = canvas.recorded.roundRects.filter(rectangle => rectangle.radius === 6 && rectangle.y >= overviewBounds.y && rectangle.y < overviewBounds.y + overviewBounds.height);
+  assert.ok(overviewCells.length >= 12);
+  assert.ok(overviewCells.every(cell => cell.x >= overviewBounds.x && cell.x + cell.width <= overviewBounds.x + overviewBounds.width));
+  assert.ok(overviewCells.every(cell => cell.y + cell.height <= overviewBounds.y + overviewBounds.height));
+});
+
+test('热力图渲染器固定导出当前自然年 53 周并将网格限制在安全正文区域', () => {
+  const harness = createShareRendererHarness(new Date(2026, 7, 31));
+  harness.shareHeatmap();
+
+  const [canvas] = harness.canvases;
+  const [preview] = harness.previews;
+  const layout = harness.createShareLayout('heatmap');
+  const bounds = {
+    x: layout.body.x,
+    y: layout.body.y + 92,
+    width: layout.body.width,
+    height: layout.body.height - 172
+  };
+  const sourceLayout = loadShareLayout();
+  const grid = sourceLayout.fitHeatmapGrid(bounds, 53, 7, 4);
+  const cells = canvas.recorded.roundRects.filter(rectangle => rectangle.width === grid.cell && rectangle.height === grid.cell && rectangle.radius === 6);
+
+  assert.equal(canvas.width, 1600);
+  assert.equal(canvas.height, 900);
+  assert.equal(preview.canvas, canvas);
+  assert.equal(preview.filename, 'FitnessTracker-2026-08-31.png');
+  assert.equal(cells.length, 53 * 7);
+  assert.ok(cells.every(cell => cell.x >= bounds.x && cell.x + cell.width <= bounds.x + bounds.width));
+  assert.ok(cells.every(cell => cell.y >= bounds.y && cell.y + cell.height <= bounds.y + bounds.height));
+  assertCanvasCoordinates(canvas);
 });
