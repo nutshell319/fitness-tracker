@@ -204,28 +204,33 @@ test('daily action list reserves footer height before planning rows', () => {
   const daily = layout.createShareLayout('daily');
   const listBounds = {
     ...daily.body,
-    y: daily.body.y + 330,
-    height: daily.body.height - 330
+    y: daily.body.y + 292,
+    height: daily.footer.y - (daily.body.y + 292)
   };
   const entries = Array.from({ length: 14 }, (_, index) => [`action-${index + 1}`, 1]);
-  const ranked = layout.planRankedItems(entries, listBounds.height, 48, 54);
+  const ranked = layout.planRankedItems(entries, listBounds.height, 52, 54);
 
-  assert.ok(ranked.length * 48 + 54 <= listBounds.height);
-  assert.ok(ranked.hiddenCount > 0);
+  assert.ok(ranked.length * 52 + 54 <= listBounds.height);
+  assert.equal(ranked.hiddenCount, 4);
 });
 
-test('monthly muscle list reserves summary height before planning rows', () => {
+test('monthly muscle list stays above the actual side-panel summary', () => {
   const layout = loadShareLayout();
   const monthly = layout.createShareLayout('monthly');
-  const availableHeight = monthly.body.height - 350;
+  const muscleBounds = {
+    x: monthly.body.x + 720,
+    y: monthly.body.y + 186,
+    width: monthly.body.width - 720,
+    height: 138
+  };
+  const summaryY = monthly.body.y + 402;
   const ranked = layout.planRankedItems(
     Array.from({ length: 7 }, (_, index) => [`muscle-${index + 1}`, 7 - index]),
-    availableHeight,
-    46,
-    54
+    muscleBounds.height,
+    46
   );
 
-  assert.ok(ranked.length * 46 + 54 <= availableHeight);
+  assert.ok(muscleBounds.y + ranked.length * 46 <= summaryY);
 });
 
 function getRendererBody(source, name) {
@@ -236,36 +241,196 @@ function getRendererBody(source, name) {
   return source.slice(start, end);
 }
 
-test('日签渲染器委托固定画布与安全文本策略', () => {
-  const source = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-  const body = getRendererBody(source, 'shareCheckinCard');
+function createMockCanvasContext() {
+  const fillRects = [];
+  const roundRects = [];
+  const texts = [];
+  const context = {
+    fillStyle: '',
+    strokeStyle: '',
+    lineWidth: 1,
+    font: '',
+    textAlign: 'left',
+    fillRect: (x, y, width, height) => fillRects.push({ x, y, width, height }),
+    roundRect: (x, y, width, height, radius) => roundRects.push({ x, y, width, height, radius }),
+    fillText: (text, x, y) => texts.push({ text: String(text), x, y }),
+    measureText: text => ({ width: Array.from(String(text)).length * 14 }),
+    beginPath: () => {},
+    stroke: () => {},
+    fill: () => {},
+    moveTo: () => {},
+    lineTo: () => {},
+    quadraticCurveTo: () => {},
+    arc: () => {},
+    createRadialGradient: () => ({ addColorStop: () => {} })
+  };
+  return { context, fillRects, roundRects, texts };
+}
 
-  assert.match(body, /drawShareCanvas\('daily'\)/);
-  assert.match(body, /wrapText\(/);
-  assert.match(body, /ellipsizeText\(/);
-  assert.match(body, /planRankedItems\(/);
-  assert.match(body, /另\s*\$?\{?[^\n}]*\}?\s*项动作/);
-  assert.match(body, /layout\.footer/);
-  assert.doesNotMatch(body, /const\s+H\s*=/);
+function createFixedDateConstructor(fixedDate) {
+  const RealDate = Date;
+  function FixedDate(...args) {
+    if (!new.target) return new RealDate(fixedDate.getTime()).toString();
+    return args.length ? new RealDate(...args) : new RealDate(fixedDate.getTime());
+  }
+  FixedDate.prototype = RealDate.prototype;
+  FixedDate.now = () => fixedDate.getTime();
+  FixedDate.parse = RealDate.parse;
+  FixedDate.UTC = RealDate.UTC;
+  return FixedDate;
+}
+
+function createShareRendererHarness(fixedDate = new Date(2026, 7, 31)) {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const start = source.indexOf('const SHARE_FORMATS');
+  const end = source.indexOf('\nfunction shareYearlyReport()', start);
+  assert.notEqual(start, -1, '未找到分享格式定义');
+  assert.notEqual(end, -1, '未找到年报渲染器边界');
+
+  const canvases = [];
+  const previews = [];
+  const formatLocalDate = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  const exercises = Array.from({ length: 14 }, (_, index) => ({
+    id: `exercise-${index + 1}`,
+    name: `超长训练动作名称 ${index + 1}：保持稳定节奏完成每一次重复`
+  }));
+  const dailyStatus = Array.from({ length: 31 }, (_, index) => ({
+    ds: formatLocalDate(new Date(2026, 7, index + 1)),
+    type: index % 8 === 0 ? 'skip' : index % 5 === 0 ? 'cardio' : 'train'
+  }));
+  const sandbox = {
+    Date: createFixedDateConstructor(fixedDate),
+    document: {
+      createElement: name => {
+        assert.equal(name, 'canvas');
+        const recorded = createMockCanvasContext();
+        const canvas = {
+          width: 0,
+          height: 0,
+          getContext: type => {
+            assert.equal(type, '2d');
+            return recorded.context;
+          },
+          recorded
+        };
+        canvases.push(canvas);
+        return canvas;
+      }
+    },
+    getTodayCycleDay: () => ({
+      emoji: '🏋️',
+      name: '高强度全身训练日',
+      motivation: '保持核心稳定，专注呼吸与动作质量，长期坚持会带来真正的改变。'.repeat(4),
+      colors: ['#ff6b35', '#4ecdc4']
+    }),
+    getTodayExercises: () => exercises,
+    isDone: id => Number(id.slice(id.lastIndexOf('-') + 1)) % 2 === 0,
+    isTodayCheckedIn: () => true,
+    getCurrentStreak: () => 12,
+    getLongestStreak: () => 24,
+    formatLocalDate,
+    getCycleDayForDate: () => ({ colors: ['#a78bfa'], color: '#a78bfa' }),
+    computeStats: () => ({
+      trainDays: 18,
+      skipDays: 3,
+      totalDays: 31,
+      muscleCount: { back: 7, chest: 6, shoulder: 5, abs: 4, legs: 3, arms: 2, cardio: 1 },
+      dailyStatus
+    }),
+    showSharePreview: (canvas, title, filename) => previews.push({ canvas, title, filename })
+  };
+  const code = source.slice(start, end);
+  vm.runInNewContext(`${code}\n;globalThis.__shareRenderers = { createShareLayout, shareCheckinCard, shareWeeklyReport, shareMonthlyReport };`, sandbox, {
+    filename: 'share-renderers.js'
+  });
+  return { ...sandbox.__shareRenderers, canvases, previews };
+}
+
+function assertCanvasCoordinates(canvas) {
+  const { fillRects, roundRects, texts } = canvas.recorded;
+  for (const rectangle of [...fillRects, ...roundRects]) {
+    assert.ok(rectangle.x >= 0 && rectangle.y >= 0, '矩形绘制坐标不能为负数');
+    assert.ok(rectangle.x + rectangle.width <= canvas.width, '矩形不能越过画布右边界');
+    assert.ok(rectangle.y + rectangle.height <= canvas.height, '矩形不能越过画布下边界');
+  }
+  for (const text of texts) {
+    assert.ok(text.x >= 0 && text.x <= canvas.width, '文本锚点必须位于画布宽度内');
+    assert.ok(text.y >= 0 && text.y <= canvas.height, '文本锚点必须位于画布高度内');
+  }
+}
+
+function assertPeriodicContentFitsFooter(canvas, layout) {
+  for (const rectangle of canvas.recorded.roundRects) {
+    if (rectangle.y >= layout.body.y && rectangle.y < layout.footer.y) {
+      assert.ok(rectangle.y + rectangle.height <= layout.footer.y, '正文圆角矩形不能侵入页脚');
+    }
+  }
+  for (const text of canvas.recorded.texts) {
+    if (text.text.includes('FitnessTracker')) {
+      assert.ok(text.y >= layout.footer.y && text.y <= layout.footer.y + layout.footer.height, '页脚文字必须位于页脚安全区');
+    } else {
+      assert.ok(text.y <= layout.footer.y, '正文文字不能侵入页脚');
+    }
+  }
+}
+
+test('日签渲染器在模拟画布中限制长文本动作并保留页脚', () => {
+  const harness = createShareRendererHarness();
+  harness.shareCheckinCard();
+
+  const [canvas] = harness.canvases;
+  const [preview] = harness.previews;
+  const layout = harness.createShareLayout('daily');
+  assert.equal(canvas.width, 1080);
+  assert.equal(canvas.height, 1440);
+  assert.equal(preview.canvas, canvas);
+  assert.equal(preview.filename, 'FitnessTracker-Daily-2026-08-31.png');
+  assertCanvasCoordinates(canvas);
+
+  const actionTextY = layout.body.y + 292;
+  const actionTexts = canvas.recorded.texts.filter(text => text.y >= actionTextY && text.y < layout.footer.y);
+  assert.ok(actionTexts.length > 0);
+  assert.ok(actionTexts.every(text => text.y <= layout.footer.y - 54));
+  assert.ok(actionTexts.some(text => text.text === '另 4 项动作'));
 });
 
-test('周报和月报渲染器共享固定画布、指标卡与安全内容策略', () => {
-  const source = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+test('周报渲染器在模拟画布中绘制固定指标、内容与页脚', () => {
+  const harness = createShareRendererHarness();
+  harness.shareWeeklyReport();
 
-  for (const [name, type] of [['shareWeeklyReport', 'weekly'], ['shareMonthlyReport', 'monthly']]) {
-    const body = getRendererBody(source, name);
-    assert.match(body, new RegExp(`drawShareCanvas\\('${type}'\\)`));
-    assert.match(body, /drawMetricCards\(/);
-    assert.match(body, /planRankedItems\(/);
-    assert.match(body, /wrapText\(/);
-    assert.match(body, /layout\.footer/);
-  }
+  const [canvas] = harness.canvases;
+  const [preview] = harness.previews;
+  const layout = harness.createShareLayout('weekly');
+  assert.equal(canvas.width, 1600);
+  assert.equal(canvas.height, 900);
+  assert.equal(preview.canvas, canvas);
+  assert.equal(preview.filename, 'FitnessTracker-Weekly-2026-09-06.png');
+  assert.equal(canvas.recorded.roundRects.filter(rectangle => rectangle.y === layout.body.y + 12 && rectangle.height === 112).length, 4);
+  assertCanvasCoordinates(canvas);
+  assertPeriodicContentFitsFooter(canvas, layout);
+});
 
-  const weekly = getRendererBody(source, 'shareWeeklyReport');
-  assert.match(weekly, /createMetricGrid\([^\n]*,\s*7\s*,/);
+test('月报渲染器在模拟画布中以六行绘制完整的 2026 年八月', () => {
+  const harness = createShareRendererHarness(new Date(2026, 7, 31));
+  harness.shareMonthlyReport();
 
-  const monthly = getRendererBody(source, 'shareMonthlyReport');
-  assert.match(monthly, /fitHeatmapGrid\(/);
+  const [canvas] = harness.canvases;
+  const [preview] = harness.previews;
+  const layout = harness.createShareLayout('monthly');
+  assert.equal(canvas.width, 1600);
+  assert.equal(canvas.height, 900);
+  assert.equal(preview.canvas, canvas);
+  assert.equal(preview.filename, 'FitnessTracker-Monthly-8.png');
+  assert.equal(canvas.recorded.roundRects.filter(rectangle => rectangle.y === layout.body.y + 12 && rectangle.height === 106).length, 4);
+  assertCanvasCoordinates(canvas);
+  assertPeriodicContentFitsFooter(canvas, layout);
+
+  const calendarBounds = { x: layout.body.x, y: layout.body.y + 200, width: 560, height: 248 };
+  const cells = canvas.recorded.roundRects.filter(rectangle => rectangle.radius === 6 && rectangle.width === rectangle.height && rectangle.y >= calendarBounds.y);
+  assert.equal(cells.length, 31);
+  assert.equal(new Set(cells.map(cell => cell.y)).size, 6);
+  assert.ok(Math.max(...cells.map(cell => cell.x + cell.width)) <= calendarBounds.x + calendarBounds.width);
+  assert.ok(Math.max(...cells.map(cell => cell.y + cell.height)) <= calendarBounds.y + calendarBounds.height);
 });
 
 test('月报热力图按实际日历周数布局，覆盖周日开始的二月', () => {
