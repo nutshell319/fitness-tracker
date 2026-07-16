@@ -198,3 +198,72 @@ test('排行区域不足一行时不绘制任何行并记录隐藏条目数', ()
     assert.equal(ranked.hiddenCount, 2);
   }
 });
+
+test('daily action list reserves footer height before planning rows', () => {
+  const layout = loadShareLayout();
+  const daily = layout.createShareLayout('daily');
+  const listBounds = {
+    ...daily.body,
+    y: daily.body.y + 330,
+    height: daily.body.height - 330
+  };
+  const entries = Array.from({ length: 14 }, (_, index) => [`action-${index + 1}`, 1]);
+  const ranked = layout.planRankedItems(entries, listBounds.height, 48, 54);
+
+  assert.ok(ranked.length * 48 + 54 <= listBounds.height);
+  assert.ok(ranked.hiddenCount > 0);
+});
+
+test('monthly muscle list reserves summary height before planning rows', () => {
+  const layout = loadShareLayout();
+  const monthly = layout.createShareLayout('monthly');
+  const availableHeight = monthly.body.height - 350;
+  const ranked = layout.planRankedItems(
+    Array.from({ length: 7 }, (_, index) => [`muscle-${index + 1}`, 7 - index]),
+    availableHeight,
+    46,
+    54
+  );
+
+  assert.ok(ranked.length * 46 + 54 <= availableHeight);
+});
+
+function getRendererBody(source, name) {
+  const start = source.indexOf(`function ${name}() {`);
+  assert.notEqual(start, -1, `未找到分享渲染器：${name}`);
+  const nextFunction = source.indexOf('\nfunction ', start + 1);
+  const end = nextFunction === -1 ? source.indexOf('</script>', start) : nextFunction;
+  return source.slice(start, end);
+}
+
+test('日签渲染器委托固定画布与安全文本策略', () => {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const body = getRendererBody(source, 'shareCheckinCard');
+
+  assert.match(body, /drawShareCanvas\('daily'\)/);
+  assert.match(body, /wrapText\(/);
+  assert.match(body, /ellipsizeText\(/);
+  assert.match(body, /planRankedItems\(/);
+  assert.match(body, /另\s*\$?\{?[^\n}]*\}?\s*项动作/);
+  assert.match(body, /layout\.footer/);
+  assert.doesNotMatch(body, /const\s+H\s*=/);
+});
+
+test('周报和月报渲染器共享固定画布、指标卡与安全内容策略', () => {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+
+  for (const [name, type] of [['shareWeeklyReport', 'weekly'], ['shareMonthlyReport', 'monthly']]) {
+    const body = getRendererBody(source, name);
+    assert.match(body, new RegExp(`drawShareCanvas\\('${type}'\\)`));
+    assert.match(body, /drawMetricCards\(/);
+    assert.match(body, /planRankedItems\(/);
+    assert.match(body, /wrapText\(/);
+    assert.match(body, /layout\.footer/);
+  }
+
+  const weekly = getRendererBody(source, 'shareWeeklyReport');
+  assert.match(weekly, /createMetricGrid\([^\n]*,\s*7\s*,/);
+
+  const monthly = getRendererBody(source, 'shareMonthlyReport');
+  assert.match(monthly, /fitHeatmapGrid\(/);
+});
