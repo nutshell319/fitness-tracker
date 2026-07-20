@@ -1032,7 +1032,8 @@ function performCheckin() {
 
   // 一键全勾选：有氧替换日勾有氧动作，否则勾今日计划动作
   const exs = isDateCardio(ds)
-    ? getEffectivePlan('cardio').map(id => EXERCISES.find(e => e.id === id)).filter(Boolean)
+    ? (getCustomPlan('cardio') || EXERCISES.filter(e => e.muscle === 'cardio' && e.core).map(e => e.id))
+        .map(id => EXERCISES.find(e => e.id === id)).filter(Boolean)
     : getTodayExercises();
   if (exs.length > 0) {
     const allIds = exs.map(e => e.id);
@@ -1158,10 +1159,6 @@ function resetCustomPlan(muscle) {
   snapshotUndo(() => { if (old) localStorage.setItem(CUSTOM_PLAN_PREFIX + muscle, old); }, '恢复默认' + getCycleDayName(muscle) + '计划');
   localStorage.removeItem(CUSTOM_PLAN_PREFIX + muscle);
 }
-function getEffectivePlan(muscle) {
-  return getCustomPlan(muscle) || EXERCISES.filter(e => e.muscle === muscle && e.core).map(e => e.id);
-}
-
 // ============================================================================
 // 动作数据
 // ============================================================================
@@ -2211,7 +2208,7 @@ function renderAll() {
     renderHeader('cardio');
     renderHeatmap();
     renderCycleBar();
-    renderCardioDay();
+    renderCardioDay(false);
   } else {
     renderHeader(cd ? cd.muscles[0] : 'back');
     renderHeatmap();
@@ -2514,7 +2511,7 @@ function renderHeatmap() {
 function renderTodayWorkout(dayIndex) {
   // 有氧替换日：显示有氧内容，原计划已顺延
   if (isDateCardio(todayStr())) {
-    renderCardioDay();
+    renderCardioDay(true);
     return;
   }
   $('#cardioSection').style.display = 'none';
@@ -2546,13 +2543,15 @@ function renderTodayWorkout(dayIndex) {
   updateCheckinBtnState(doneCount, exs.length);
 }
 
-function renderCardioDay() {
+function renderCardioDay(isReplacement) {
   $('#cardioSection').style.display = 'none';
   $('#todaySection').style.display = 'block';
-  const planIds = getEffectivePlan('cardio');
+  // 查询当天自定义计划 → 旧格式（按肌肉群） → 默认核心有氧动作
+  const dayIndex = getTodayCycleDayIndex();
+  const planIds = (dayIndex >= 0 ? getCustomPlan('day_' + dayIndex) : null) || getCustomPlan('cardio') || EXERCISES.filter(e => e.muscle === 'cardio' && e.core).map(e => e.id);
   const exs = planIds.map(id => EXERCISES.find(e => e.id === id)).filter(Boolean);
   let h = '<div class="cardio-day-content" style="margin-bottom:16px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;">';
-  h += '<h4 style="color:var(--cardio);margin-bottom:8px;">🫀 有氧日（原计划已顺延至明天）</h4>';
+  h += isReplacement ? '<h4 style="color:var(--cardio);margin-bottom:8px;">🫀 有氧日（原计划已顺延至明天）</h4>' : '<h4 style="color:var(--cardio);margin-bottom:8px;">🫀 有氧日</h4>';
   h += '<p style="color:var(--text-secondary);font-size:13px;line-height:1.7;margin-bottom:4px;">最大心率 ≈ 220-年龄 &nbsp;|&nbsp; 燃脂区 = 最大心率×60-70%（约 120-140 次/分钟）</p>';
   h += '<p style="color:var(--text-muted);font-size:12px;">💡 快走而非慢跑——保持能聊天但不能唱歌的强度，燃脂效率最高</p>';
   h += '</div>';
