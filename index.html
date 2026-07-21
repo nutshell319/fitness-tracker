@@ -579,6 +579,11 @@ const STORAGE_KEY = 'ft_start_date';
 const SKIP_KEY = 'ft_skip_dates';
 const CARDIO_KEY = 'ft_cardio_dates';
 const CUSTOM_PLAN_PREFIX = 'ft_custom_';
+const DAY_ID_KEY_PREFIX = 'ft_dayid_';
+
+// 存储/读取某天的周期日ID（防止改周期顺序后历史数据被覆盖）
+function saveDayIdForDate(ds, dayId) { localStorage.setItem(DAY_ID_KEY_PREFIX + ds, dayId); }
+function getStoredDayIdForDate(ds) { return localStorage.getItem(DAY_ID_KEY_PREFIX + ds); }
 
 // 日期工具：全部使用本地时间，避免 UTC 时区偏差（中国 UTC+8）
 function parseLocalDate(str) { const [y,m,d]=str.split('-').map(Number); return new Date(y,m-1,d); }
@@ -1027,8 +1032,10 @@ function performCheckin() {
     return;
   }
 
-  // 打卡：记录打卡时间
+  // 打卡：记录打卡时间 + 周期日ID（防止改周期后历史数据错乱）
   localStorage.setItem(checkinKey, String(Date.now()));
+  const todayCdForSave = getTodayCycleDay();
+  if (todayCdForSave) saveDayIdForDate(ds, todayCdForSave.id);
 
   // 一键全勾选：有氧替换日勾有氧动作，否则勾今日计划动作
   const exs = isDateCardio(ds)
@@ -1303,6 +1310,15 @@ function getCycleLength() { return getCycle().length; }
 function getCycleDayIndexForDate(date) {
   const ds = formatLocalDate(date);
   if (isDateSkipped(ds)) return -1;
+
+  // 优先使用存储的周期日ID（防止改周期顺序后历史数据被覆盖）
+  const storedId = getStoredDayIdForDate(ds);
+  if (storedId) {
+    const cycle = getCycle();
+    const idx = cycle.findIndex(d => d.id === storedId);
+    if (idx >= 0) return idx;
+  }
+
   const start = getStartDate();
   const skipSet = new Set(getSkipDates());
   const cardioSet = new Set(getCardioDates()); // 有氧替换日也顺延计划
@@ -2899,10 +2915,10 @@ $('#saveStartDate').addEventListener('click', () => {
   localStorage.setItem(STORAGE_KEY, formatLocalDate(d));
   localStorage.removeItem(SKIP_KEY);
   localStorage.removeItem(CARDIO_KEY);
-  // 清除旧日期的打卡和完成记录
+  // 清除旧日期的打卡、完成记录和周期日ID
   for (let i = localStorage.length - 1; i >= 0; i--) {
     const k = localStorage.key(i);
-    if (k && (k.startsWith('ft_checkin_') || k.startsWith('ft_done_'))) localStorage.removeItem(k);
+    if (k && (k.startsWith('ft_checkin_') || k.startsWith('ft_done_') || k.startsWith('ft_dayid_'))) localStorage.removeItem(k);
   }
   renderAll();
   showToast('✅ 起始日期已更新，跳过/有氧/打卡记录已清空');
@@ -2967,6 +2983,11 @@ function toggleDone(exId) {
   const done = getDoneSet();
   if (done.has(exId)) done.delete(exId); else done.add(exId);
   localStorage.setItem(key, JSON.stringify([...done]));
+  // 首次勾选时存储周期日ID（防止改周期后历史数据错乱）
+  if (!getStoredDayIdForDate(ds)) {
+    const cd = getTodayCycleDay();
+    if (cd) saveDayIdForDate(ds, cd.id);
+  }
   renderTodayWorkout(getTodayCycleDayIndex());
 }
 function isDone(exId) { return getDoneSet().has(exId); }
