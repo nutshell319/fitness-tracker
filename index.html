@@ -399,9 +399,9 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
       <div style="font-size:11px;color:var(--text-muted);margin-top:6px;display:none;" id="checkinHint">至少完成 1 个动作才能打卡</div>
     </div>
     <div class="header-actions">
-      <button class="skip-btn" id="skipBtn" title="有事跳过，计划顺延一天">⏭ 今天练不了，顺延一天</button>
+      <button class="skip-btn" id="skipBtn" title="有事休息，计划顺延一天">💤 今天休息，顺延一天</button>
       <button class="custom-plan-btn" id="customPlanBtn" title="自定义今天练哪些动作">📝 自定义训练计划</button>
-      <button class="skip-btn" id="unskipBtn" title="撤销今天的跳过" style="display:none;">↩ 撤销跳过</button>
+      <button class="skip-btn" id="unskipBtn" title="撤销今天的休息日" style="display:none;">↩ 撤销休息日</button>
     </div>
     <div class="share-btn-group" id="headerShareBtns" style="margin-top:8px;display:none;">
       <button class="share-btn-sm" onclick="shareHeatmap()">📤 热力图</button>
@@ -446,10 +446,10 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
       <p class="settings-hint" id="cycleHint">起始日为<b>背日</b>，按 背→胸→肩→腹→有氧 5 日循环（练四休一）</p>
       <button id="editCycleBtn" style="margin-top:8px;padding:8px 16px;background:transparent;border:1px solid var(--secondary);color:var(--secondary);border-radius:20px;cursor:pointer;font-size:13px;font-family:var(--font);">🔄 自定义训练周期</button>
       <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
-        <label style="font-size:12px;color:var(--text-muted);margin-bottom:6px;display:block;">📅 管理跳过记录（可补跳过或删除过往跳过）</label>
+        <label style="font-size:12px;color:var(--text-muted);margin-bottom:6px;display:block;">📅 管理休息日记录（可补加或删除过往休息日）</label>
         <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">
           <input type="date" id="skipDateInput" style="flex:1;padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px;font-family:var(--font);">
-          <button id="addSkipBtn" style="padding:6px 12px;background:var(--primary);color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;font-family:var(--font);">添加跳过</button>
+          <button id="addSkipBtn" style="padding:6px 12px;background:var(--primary);color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;font-family:var(--font);">添加休息日</button>
         </div>
         <div id="skipDateList" style="display:flex;flex-wrap:wrap;gap:4px;font-size:12px;"></div>
       </div>
@@ -463,11 +463,11 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
   </details>
 </div>
 
-<!-- 跳过确认弹窗 -->
+<!-- 休息日确认弹窗 -->
 <div class="modal-overlay" id="skipModal">
   <div class="modal-box">
-    <h3>确认跳过今天？</h3>
-    <p>今天标记为已跳过，训练计划整体后移一天。明天继续今天的计划。</p>
+    <h3>确认今天休息？</h3>
+    <p>今天标记为休息日，训练计划整体后移一天。明天继续今天的计划。</p>
     <div class="modal-actions">
       <button class="btn-cancel" id="btnCancel">取消</button>
       <button class="btn-confirm" id="btnConfirm">确认顺延</button>
@@ -603,14 +603,14 @@ function getSkipDates() {
 function isDateSkipped(dateStr) { return getSkipDates().includes(dateStr); }
 function isTodaySkipped() { return isDateSkipped(todayStr()); }
 
-// 有氧替换日期（计划变更：当天不做原计划，改为做有氧）
+// 有氧日期（计划变更：当天不做原计划，改为做有氧）
 function getCardioDates() {
   try { const raw = localStorage.getItem(CARDIO_KEY); return raw ? JSON.parse(raw) : []; } catch(e) { return []; }
 }
 function isDateCardio(dateStr) { return getCardioDates().includes(dateStr); }
 function isTodayCardio() { return isDateCardio(todayStr()); }
 
-// 计算从起始日到今天之间，有多少个非跳过日（有效训练日）
+// 计算从起始日到今天之间，有多少个非休息日（有效训练日）
 function getDaysDiff() {
   const start = getStartDate();
   const today = new Date(); today.setHours(0,0,0,0);
@@ -677,7 +677,7 @@ function getCheckinSet() {
 function isCheckedIn(dateStr) { return getCheckinSet().has(dateStr); }
 function isTodayCheckedIn() { return isCheckedIn(todayStr()); }
 
-// 计算当前连续打卡天数（从今天往回数，遇到跳过日期停止）
+// 计算当前连续打卡天数（从今天往回数，遇到休息日停止）
 
 // ── 统一统计引擎：从 localStorage 直读，所有分享卡片共用 ──
 function computeStats(startDate, endDate) {
@@ -1037,7 +1037,7 @@ function performCheckin() {
   const todayCdForSave = getTodayCycleDay();
   if (todayCdForSave) saveDayIdForDate(ds, todayCdForSave.id);
 
-  // 一键全勾选：有氧替换日勾有氧动作，否则勾今日计划动作
+  // 一键全勾选：有氧日勾有氧动作，否则勾今日计划动作
   const exs = isDateCardio(ds)
     ? (getCustomPlan('cardio') || EXERCISES.filter(e => e.muscle === 'cardio' && e.core).map(e => e.id))
         .map(id => EXERCISES.find(e => e.id === id)).filter(Boolean)
@@ -1139,12 +1139,12 @@ function saveStartDate(d) {
 }
 function saveStartDateRaw(d) { localStorage.setItem(STORAGE_KEY, formatLocalDate(d)); }
 
-// 跳过今天：将今天加入跳过列表，不影响起始日
+// 跳过今天：将今天加入休息日列表，不影响起始日
 function skipToday() {
   if (isTodaySkipped()) return;
   const ts = todayStr();
   const oldSkips = getSkipDates();
-  snapshotUndo(() => { localStorage.setItem(SKIP_KEY, JSON.stringify(oldSkips)); }, '跳过今天');
+  snapshotUndo(() => { localStorage.setItem(SKIP_KEY, JSON.stringify(oldSkips)); }, '休息日');
   const newSkips = [...oldSkips, ts];
   localStorage.setItem(SKIP_KEY, JSON.stringify(newSkips));
 }
@@ -1306,7 +1306,7 @@ function getCycle() {
 }
 function getCycleLength() { return getCycle().length; }
 
-// 计算某一天对应的周期日索引（0-based），跳过日返回 -1
+// 计算某一天对应的周期日索引（0-based），休息日返回 -1
 function getCycleDayIndexForDate(date) {
   const ds = formatLocalDate(date);
   if (isDateSkipped(ds)) return -1;
@@ -1321,7 +1321,7 @@ function getCycleDayIndexForDate(date) {
 
   const start = getStartDate();
   const skipSet = new Set(getSkipDates());
-  const cardioSet = new Set(getCardioDates()); // 有氧替换日也顺延计划
+  const cardioSet = new Set(getCardioDates()); // 有氧日也顺延计划
   let count = 0;
   const d = new Date(start);
   while (d <= date) {
@@ -1991,7 +1991,7 @@ function shareMonthlyReport() {
 
   const metrics = [
     { num: stats.trainDays, label: '训练天数', color: '#ff6b35' },
-    { num: stats.skipDays, label: '跳过天数', color: '#e85d75' },
+    { num: stats.skipDays, label: '休息日', color: '#e85d75' },
     { num: stats.totalDays ? Math.round(stats.trainDays / stats.totalDays * 100) : 0, label: '出勤率 %', color: '#22c55e' },
     { num: getLongestStreak(), label: '最长连续', color: '#a78bfa' }
   ];
@@ -2101,7 +2101,7 @@ function shareYearlyReport() {
 
   const metrics = [
     { num: stats.trainDays, label: '训练天数', color: '#ff6b35' },
-    { num: stats.skipDays, label: '跳过天数', color: '#e85d75' },
+    { num: stats.skipDays, label: '休息日', color: '#e85d75' },
     { num: stats.totalD ? Math.round(stats.trainDays / stats.totalD * 100) : 0, label: '出勤率 %', color: '#22c55e' },
     { num: stats.longestStreak, label: '当年最长连续', color: '#a78bfa' }
   ];
@@ -2237,14 +2237,14 @@ function renderAll() {
 function renderSkippedDay() {
   $('#todaySection').style.display = 'block';
   $('#cardioSection').style.display = 'none';
-  $('#todaySectionTitle').textContent = '⏭ 今日已跳过';
+  $('#todaySectionTitle').textContent = '⏭ 今日休息日';
   const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
   const nextCd = getCycleDayForDate(tomorrow);
   const nextName = nextCd ? nextCd.name : '未定';
   $('#todayList').innerHTML = `
     <div class="cardio-day-content" style="text-align:center;padding:40px 24px;">
       <span style="font-size:60px;display:block;margin-bottom:12px;">⏭</span>
-      <h3 style="margin-bottom:8px;color:var(--text-secondary);">今天已跳过</h3>
+      <h3 style="margin-bottom:8px;color:var(--text-secondary);">今天休息日</h3>
       <p style="color:var(--text-muted);font-size:14px;line-height:1.7;">
         训练计划已整体后移一天<br>
         明天恢复：<strong style="color:var(--primary);">${nextName}</strong>
@@ -2257,7 +2257,7 @@ function renderSkippedDay() {
 
 function renderHeader(muscle) {
   const h = $('#header');
-  const isTodayCardioReplacement = isDateCardio(todayStr()); // 有氧替换日
+  const isTodayCardioReplacement = isDateCardio(todayStr()); // 有氧日
   const cd = isTodayCardioReplacement ? null : getTodayCycleDay();
   const cssMuscle = isTodayCardioReplacement ? 'cardio' : (cd ? cd.muscles[0] : 'cardio');
   h.className = 'header ' + (muscle === 'skipped' ? 'cardio' : cssMuscle);
@@ -2267,11 +2267,11 @@ function renderHeader(muscle) {
   $('#dayEmoji').style.fontSize = emLen > 4 ? '28px' : emLen > 2 ? '38px' : '';
   if (isTodayCardioReplacement) {
     $('#dayLabel').textContent = '有氧日';
-    $('#dayTitle').textContent = '有氧替换';
+    $('#dayTitle').textContent = '有氧';
     $('#motivation').textContent = '计划有变，来一场酣畅淋漓的有氧吧！';
   } else {
-    $('#dayLabel').textContent = cd ? cd.name : (muscle === 'skipped' ? '已跳过' : getCycleDayName(muscle));
-    $('#dayTitle').textContent = cd ? cd.name : (muscle === 'skipped' ? '已跳过' : getCycleDayName(muscle));
+    $('#dayLabel').textContent = cd ? cd.name : (muscle === 'skipped' ? '休息日' : getCycleDayName(muscle));
+    $('#dayTitle').textContent = cd ? cd.name : (muscle === 'skipped' ? '休息日' : getCycleDayName(muscle));
     $('#motivation').textContent = (cd && cd.motivation) ? cd.motivation : '今天休息，训练计划已整体后移';
   }
   const now = new Date();
@@ -2315,7 +2315,7 @@ function renderHeader(muscle) {
     $('#customPlanBtn').style.display = '';
     $('#skipBtn').style.display = '';
     $('#unskipBtn').style.display = 'none';
-    $('#skipBtn').textContent = cd && cd.muscles[0] === 'cardio' ? '⏭ 今天休息，顺延一天' : '⏭ 今天练不了，顺延一天';
+    $('#skipBtn').textContent = cd && cd.muscles[0] === 'cardio' ? '⏭ 今天休息，顺延一天' : '💤 今天休息，顺延一天';
   }
 }
 
@@ -2334,7 +2334,7 @@ function renderCycleBar() {
     const cd = getCycleDayForDate(d);
     const cssCls = cd ? cd.muscles[0] : 'skipped';
     const emoji = cd ? compactEmoji(cd, 2) : '⏭';
-    const label = cd ? cd.name : '跳过';
+    const label = cd ? cd.name : '休息日';
     const labelClr = cd ? getDayLabelColor(cd) : '';
     // 打卡圆点
     let dotHtml = '';
@@ -2365,7 +2365,7 @@ function renderHeatmap() {
   while (d0 <= today) {
     const ds = formatLocalDate(d0);
     if (skipSet.has(ds)) skipDays++;
-    else trainDays++; // 含正常训练日+有氧替换日
+    else trainDays++; // 含正常训练日+有氧日
     d0.setDate(d0.getDate() + 1);
   }
   let streak = 0;
@@ -2381,7 +2381,7 @@ function renderHeatmap() {
   // ── 统计行 ──
   let h = '<div class="heatmap-stats">';
   h += `<div class="heatmap-stat"><div class="stat-num train">${trainDays}</div><div class="stat-label">🏋️ 训练天数</div></div>`;
-  h += `<div class="heatmap-stat"><div class="stat-num skip">${skipDays}</div><div class="stat-label">⏭ 跳过天数</div></div>`;
+  h += `<div class="heatmap-stat"><div class="stat-num skip">${skipDays}</div><div class="stat-label">⏭ 休息日</div></div>`;
   h += `<div class="heatmap-stat"><div class="stat-num streak">${streak}</div><div class="stat-label">🔥 连续训练</div></div>`;
   h += `<div class="heatmap-stat"><div class="stat-num record">${longest}</div><div class="stat-label">🏆 最长纪录</div></div>`;
   h += '</div>';
@@ -2482,7 +2482,7 @@ function renderHeatmap() {
         cls = 'future';
       } else if (skipSet.has(ds)) {
         cls = 'skip-cell';
-        tip = `${d.getMonth()+1}/${d.getDate()} ⏭ 跳过`;
+        tip = `${d.getMonth()+1}/${d.getDate()} 💤 休息日`;
       } else if (cardioSet3.has(ds)) {
         cls = 'cardio-cell';
         tip = `${d.getMonth()+1}/${d.getDate()} 🫀 有氧日`;
@@ -2496,7 +2496,7 @@ function renderHeatmap() {
         style = `background:${bg};`;
       }
       const clickable = !isBeforeStart && !isAfterToday;
-      h += `<div class="heatmap-cell ${cls}${clickable?' clickable-cell':''}" style="${style||''}"${tip ? ` data-tip="${tip}"` : ''}${clickable ? ` onclick="toggleSkipDate('${ds}')" title="点击切换：正常→跳过→有氧→正常"` : ''}></div>`;
+      h += `<div class="heatmap-cell ${cls}${clickable?' clickable-cell':''}" style="${style||''}"${tip ? ` data-tip="${tip}"` : ''}${clickable ? ` onclick="toggleSkipDate('${ds}')" title="点击切换：正常→休息日→有氧→正常"` : ''}></div>`;
     }
     h += '</div>';
   }
@@ -2510,8 +2510,7 @@ function renderHeatmap() {
     {color:'var(--shoulder)', label:'肩日'},
     {color:'var(--abs)', label:'腹日'},
     {color:'var(--cardio)', label:'有氧'},
-    {color:'var(--cardio)', label:'🫀有氧替换'},
-    {color:'rgba(232,93,117,0.4)', label:'跳过'},
+    {color:'rgba(232,93,117,0.4)', label:'休息日'},
   ];
   for (const item of legendItems) {
     h += `<div class="heatmap-legend-item"><span class="heatmap-legend-dot" style="background:${item.color}"></span>${item.label}</div>`;
@@ -2525,7 +2524,7 @@ function renderHeatmap() {
 }
 
 function renderTodayWorkout(dayIndex) {
-  // 有氧替换日：显示有氧内容，原计划已顺延
+  // 有氧日：显示有氧内容，原计划已顺延
   if (isDateCardio(todayStr())) {
     renderCardioDay(true);
     return;
@@ -2625,15 +2624,15 @@ $('#skipBtn').addEventListener('click', () => $('#skipModal').classList.add('sho
 $('#unskipBtn').addEventListener('click', () => {
   const ts = todayStr();
   const oldSkips = getSkipDates();
-  snapshotUndo(() => { localStorage.setItem(SKIP_KEY, JSON.stringify(oldSkips)); }, '撤销跳过今天');
+  snapshotUndo(() => { localStorage.setItem(SKIP_KEY, JSON.stringify(oldSkips)); }, '撤销今天休息');
   localStorage.setItem(SKIP_KEY, JSON.stringify(oldSkips.filter(s => s !== ts)));
   renderAll();
-  showToast('✅ 已撤销跳过，今天恢复训练');
+  showToast('✅ 已撤销休息日，今天恢复训练');
 });
 $('#btnCancel').addEventListener('click', () => $('#skipModal').classList.remove('show'));
 $('#btnConfirm').addEventListener('click', () => {
   skipToday(); $('#skipModal').classList.remove('show'); renderAll();
-  showToast('✅ 今天已跳过，计划整体后移一天');
+  showToast('✅ 今天休息日，计划整体后移一天');
 });
 $('#skipModal').addEventListener('click', function(e) { if (e.target===this) this.classList.remove('show'); });
 
@@ -2711,16 +2710,16 @@ function updateSettingsUI() {
   renderSkipDateList();
 }
 
-// ── 跳过日期管理 ──
+// ── 休息日期管理 ──
 function renderSkipDateList() {
   const skips = getSkipDates().sort();
   const today = todayStr();
   if (skips.length === 0) {
-    $('#skipDateList').innerHTML = '<span style="color:var(--text-muted);">暂无跳过记录（也可点击热力图格子切换跳过）</span>';
+    $('#skipDateList').innerHTML = '<span style="color:var(--text-muted);">暂无休息日记录（也可点击热力图格子切换休息日）</span>';
   } else {
     $('#skipDateList').innerHTML = skips.map(s => {
       const isToday = s === today;
-      return `<span style="display:inline-flex;align-items:center;gap:3px;background:${isToday?'var(--primary-dim)':'var(--bg)'};border:1px solid var(--border);border-radius:10px;padding:2px 8px;font-size:11px;color:var(--danger);">${s}${isToday?' 🔴':''} <button onclick="removeSkipDate('${s}')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:13px;padding:0 2px;line-height:1;" title="删除此跳过">×</button></span>`;
+      return `<span style="display:inline-flex;align-items:center;gap:3px;background:${isToday?'var(--primary-dim)':'var(--bg)'};border:1px solid var(--border);border-radius:10px;padding:2px 8px;font-size:11px;color:var(--danger);">${s}${isToday?' 🔴':''} <button onclick="removeSkipDate('${s}')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:13px;padding:0 2px;line-height:1;" title="删除此休息日">×</button></span>`;
     }).join('');
   }
   $('#skipDateInput').value = '';
@@ -2731,25 +2730,25 @@ function addSkipDate(dateStr) {
   const d = parseLocalDate(dateStr);
   if (isNaN(d)) return;
   const start = getStartDate();
-  if (d < start) { showToast('⚠ 不能跳过起始日之前的日期'); return; }
+  if (d < start) { showToast('⚠ 不能设置起始日之前的日期'); return; }
   const today = new Date(); today.setHours(0,0,0,0);
-  if (d > today) { showToast('⚠ 不能跳过未来的日期'); return; }
+  if (d > today) { showToast('⚠ 不能设置未来的日期'); return; }
   const skips = getSkipDates();
-  if (skips.includes(dateStr)) { showToast('⚠ 该日期已在跳过列表中'); return; }
-  snapshotUndo(() => { localStorage.setItem(SKIP_KEY, JSON.stringify(skips)); }, '添加跳过 ' + dateStr);
+  if (skips.includes(dateStr)) { showToast('⚠ 该日期已在休息日列表中'); return; }
+  snapshotUndo(() => { localStorage.setItem(SKIP_KEY, JSON.stringify(skips)); }, '添加休息日 ' + dateStr);
   localStorage.setItem(SKIP_KEY, JSON.stringify([...skips, dateStr]));
   renderAll();
   updateSettingsUI();
-  showToast('✅ 已添加跳过：' + dateStr);
+  showToast('✅ 已添加休息日：' + dateStr);
 }
 
 function removeSkipDate(dateStr) {
   const skips = getSkipDates();
-  snapshotUndo(() => { localStorage.setItem(SKIP_KEY, JSON.stringify(skips)); }, '删除跳过 ' + dateStr);
+  snapshotUndo(() => { localStorage.setItem(SKIP_KEY, JSON.stringify(skips)); },  '删除休息日 ' + dateStr);
   localStorage.setItem(SKIP_KEY, JSON.stringify(skips.filter(s => s !== dateStr)));
   renderAll();
   updateSettingsUI();
-  showToast('✅ 已删除跳过：' + dateStr);
+  showToast('✅ 已取消休息日：' + dateStr);
 }
 
 function toggleSkipDate(dateStr) {
@@ -2757,14 +2756,14 @@ function toggleSkipDate(dateStr) {
   const skips = getSkipDates();
   const cardios = getCardioDates();
   if (skips.includes(dateStr)) {
-    // 当前是跳过 → 转为有氧替换
+    // 当前是休息日 → 转为有氧日
     removeSkipDate(dateStr);
     addCardioDate(dateStr);
   } else if (cardios.includes(dateStr)) {
-    // 当前是有氧替换 → 恢复为正常
+    // 当前是有氧日 → 恢复为正常
     removeCardioDate(dateStr);
   } else {
-    // 当前是正常 → 跳过
+    // 当前是正常 → 休息日
     addSkipDate(dateStr);
   }
 }
@@ -2905,7 +2904,7 @@ $('#editCycleBtn').addEventListener('click', openCycleEditor);
 $('#saveStartDate').addEventListener('click', () => {
   const val = $('#startDateInput').value; if (!val) return;
   const d = new Date(val); if (isNaN(d)) return;
-  // 保存旧状态（起始日 + 跳过列表），一次性撤销
+  // 保存旧状态（起始日 + 休息日列表），一次性撤销
   const oldStart = localStorage.getItem(STORAGE_KEY);
   const oldSkips = getSkipDates();
   snapshotUndo(() => {
@@ -2921,7 +2920,7 @@ $('#saveStartDate').addEventListener('click', () => {
     if (k && (k.startsWith('ft_checkin_') || k.startsWith('ft_done_') || k.startsWith('ft_dayid_'))) localStorage.removeItem(k);
   }
   renderAll();
-  showToast('✅ 起始日期已更新，跳过/有氧/打卡记录已清空');
+  showToast('✅ 起始日期已更新，休息日/有氧/打卡记录已清空');
 });
 // 清空所有数据
 $('#resetAllBtn').addEventListener('click', () => {
@@ -3110,7 +3109,7 @@ function shareHeatmap() {
   let statsX = layout.header.x;
   const statParts = [
     { value: String(trainDays), label: ' 天训练', color: '#ff6b35' },
-    { value: String(skipDays), label: ' 天跳过', color: '#e85d75' },
+    { value: String(skipDays), label: ' 天休息日', color: '#e85d75' },
     { value: String(streak), label: ' 天连续', color: '#4ecdc4' }
   ];
   statParts.forEach((part, index) => {
@@ -3185,7 +3184,7 @@ function shareHeatmap() {
   const legends = [
     { color: '#4ecdc4', label: '背部' }, { color: '#ff6b35', label: '胸部' }, { color: '#f0c040', label: '肩部' },
     { color: '#22c55e', label: '腹部' }, { color: '#a78bfa', label: '腿部' }, { color: '#60a5fa', label: '有氧' },
-    { color: 'rgba(232,93,117,0.5)', label: '跳过' }
+    { color: 'rgba(232,93,117,0.5)', label: '休息日' }
   ];
   const legendTop = gridY + heatmap.height + 34;
   const legendMaxWidth = Math.min(300, heatmap.width);
